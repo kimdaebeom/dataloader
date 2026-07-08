@@ -1,0 +1,43 @@
+# Converted dataset root. The player looks for:
+#   ${data_root}/helipr/${sequence}/manifest.yaml
+data_root: /data/converted_datasets
+dataset: helipr
+sequence: DCC01
+
+play_rate: 1.0
+loop: false
+
+# 0-based lidar frame index range, using primary_lidar timestamps.
+# HeLiPR can use ouster, velodyne, livox_avia, or aeva as primary_lidar
+# if that sensor exists in the converted sequence.
+primary_lidar: ouster
+start_lidar_frame: 0
+end_lidar_frame: -1
+
+publish:
+  clock: true
+  inspva: true
+  imu: true
+  imu_mag: false
+  ouster: true
+  velodyne: false
+  livox_avia: false
+  aeva: false
+
+topics:
+  inspva: /inspva
+  imu: /imu/data_raw
+  imu_mag: /imu/mag
+  ouster: /ouster/points
+  velodyne: /velodyne/points
+  livox_avia: /avia/points
+  aeva: /aeva/points
+
+frame_ids:
+  inspva: inspva
+  imu: imu
+  ouster: ouster
+  velodyne: velodyne
+  livox_avia: livox_avia
+  aeva: aeva
+

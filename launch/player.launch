@@ -1,0 +1,9 @@
+<launch>
+  <arg name="config" default="$(find dataloader)/config/mulran.yaml"/>
+  <arg name="output" default="screen"/>
+
+  <node pkg="dataloader" type="dataloader_player_node.py" name="dataloader_player" output="$(arg output)">
+    <rosparam command="load" file="$(arg config)"/>
+  </node>
+</launch>
+

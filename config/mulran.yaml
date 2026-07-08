@@ -1,0 +1,36 @@
+# Converted dataset root. The player looks for:
+#   ${data_root}/mulran/${sequence}/manifest.yaml
+data_root: /data/converted_datasets
+dataset: mulran
+sequence: KAIST01
+
+play_rate: 1.0
+loop: false
+
+# 0-based lidar frame index range, using primary_lidar timestamps.
+# end_lidar_frame: -1 means play until the last lidar frame.
+primary_lidar: ouster
+start_lidar_frame: 0
+end_lidar_frame: -1
+
+publish:
+  clock: true
+  ouster: true
+  radar: true
+  gps: true
+  imu: true
+  imu_mag: false
+
+topics:
+  ouster: /os1_points
+  radar: /radar/polar
+  gps: /gps/fix
+  imu: /imu/data_raw
+  imu_mag: /imu/mag
+
+frame_ids:
+  ouster: ouster
+  radar: radar_polar
+  gps: gps
+  imu: imu
+

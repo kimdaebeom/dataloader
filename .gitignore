@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.catkin_tools/
+.vscode/
+build/
+devel/
+logs/
+*.bag
+*.db3
+*.mcap
+converted_datasets/
+data/
