@@ -16,4 +16,4 @@ The default converter mode is `reference`, so converted datasets stay small by s
 roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/mulran.yaml
 ```
 
-Dataset folder requirements are documented in `docs/dataset_layout.md`.
+Dataset folder requirements are documented in `docs/dataset_layout.html`.

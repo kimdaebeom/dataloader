@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dataloader Dataset Layout</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #5d6673;
+      --line: #d9dee7;
+      --accent: #0f766e;
+      --accent-soft: #e3f4f1;
+      --code-bg: #111827;
+      --code-ink: #e5edf6;
+      --warn-bg: #fff7e6;
+      --warn-line: #f3c969;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 48px 0 32px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 40px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 820px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: #fbfcfd;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    section {
+      margin: 0 0 22px;
+      padding: 26px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 24px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul, ol {
+      margin: 0 0 16px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #eef2f6;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 18px;
+      padding: 16px;
+      overflow-x: auto;
+      border-radius: 8px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      font-size: inherit;
+    }
+
+    table {
+      width: 100%;
+      margin: 12px 0 18px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f4f8;
+      font-weight: 650;
+    }
+
+    .note {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent-soft);
+    }
+
+    .warning {
+      border-color: var(--warn-line);
+      border-left-color: #b7791f;
+      background: var(--warn-bg);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .tag-list li {
+      margin: 0;
+      padding: 5px 9px;
+      border-radius: 5px;
+      background: #edf5ff;
+      color: #1f4b7a;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      .wrap {
+        width: min(100% - 24px, 1120px);
+      }
+
+      .hero {
+        padding: 34px 0 24px;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      section {
+        padding: 18px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <h1>dataloader Dataset Layout</h1>
+      <p class="subtitle">Raw MulRan and HeLiPR folder requirements, converted dataset structure, storage modes, and playback configuration notes.</p>
+    </div>
+    <nav class="wrap" aria-label="Page sections">
+      <a href="#overview">Overview</a>
+      <a href="#mulran">MulRan Raw Layout</a>
+      <a href="#helipr">HeLiPR Raw Layout</a>
+      <a href="#converted">Converted Layout</a>
+      <a href="#commands">Commands</a>
+      <a href="#playback">Playback</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>This package supports two layout levels.</p>
+      <ol>
+        <li><strong>Raw dataset layout</strong>: the folder structure expected by the original dataset file players.</li>
+        <li><strong>Converted dataloader layout</strong>: the unified structure generated by <code>dataloader_convert.py</code>.</li>
+      </ol>
+      <div class="note">
+        The default converter mode is <code>reference</code>. It writes metadata and absolute paths to the raw files, so converted datasets stay small even on external drives that do not support symlinks or hardlinks.
+      </div>
+    </section>
+
+    <section id="mulran">
+      <h2>Raw MulRan Layout</h2>
+      <p>Select or pass one MulRan sequence directory as <code>--source</code>.</p>
+      <pre><code>&lt;mulran_sequence&gt;/
+  sensor_data/
+    data_stamp.csv
+    gps.csv
+    xsens_imu.csv
+    Ouster/
+      &lt;timestamp_ns&gt;.bin
+    radar/
+      polar/
+        &lt;timestamp_ns&gt;.png</code></pre>
+
+      <h3>Required Files</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>sensor_data/data_stamp.csv</code></td>
+            <td>Timeline rows in <code>&lt;timestamp_ns&gt;,&lt;sensor_name&gt;</code> format.</td>
+          </tr>
+          <tr>
+            <td><code>sensor_data/Ouster/*.bin</code></td>
+            <td>Ouster LiDAR scans. The original player reads <code>x, y, z, intensity</code> as float32 values and derives <code>ring</code>.</td>
+          </tr>
+          <tr>
+            <td><code>sensor_data/radar/polar/*.png</code></td>
+            <td>Navtech radar polar images.</td>
+          </tr>
+          <tr>
+            <td><code>sensor_data/gps.csv</code></td>
+            <td>GPS rows used for <code>/gps/fix</code>.</td>
+          </tr>
+          <tr>
+            <td><code>sensor_data/xsens_imu.csv</code></td>
+            <td>Xsens IMU rows used for <code>/imu/data_raw</code> and optionally <code>/imu/mag</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Known Timeline Labels</h3>
+      <ul class="tag-list">
+        <li>ouster</li>
+        <li>radar</li>
+        <li>gps</li>
+        <li>imu</li>
+      </ul>
+
+      <div class="note">
+        Some local MulRan sequences store radar as <code>sensor_data/radara/polar</code>; the converter accepts both <code>radar/polar</code> and <code>radara/polar</code>.
+      </div>
+      <div class="note warning">
+        If a timeline contains <code>radar</code> but neither radar folder exists, the converter excludes radar from the converted manifest instead of failing.
+      </div>
+    </section>
+
+    <section id="helipr">
+      <h2>Raw HeLiPR Layout</h2>
+      <p>Select or pass one HeLiPR sequence directory as <code>--source</code>.</p>
+      <pre><code>&lt;helipr_sequence&gt;/
+  stamp.csv
+  Inertial_data/
+    inspva.csv
+    xsens_imu.csv
+  LiDAR/
+    Ouster/
+      &lt;timestamp_ns&gt;.bin
+    Velodyne/
+      &lt;timestamp_ns&gt;.bin
+    Avia/
+      &lt;timestamp_ns&gt;.bin
+    Aeva/
+      &lt;timestamp_ns&gt;.bin</code></pre>
+
+      <h3>Required Files</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>stamp.csv</code></td>
+            <td>Timeline rows in <code>&lt;timestamp_ns&gt;,&lt;sensor_name&gt;</code> format.</td>
+          </tr>
+          <tr>
+            <td><code>Inertial_data/inspva.csv</code></td>
+            <td>NovAtel INS/GNSS rows used for <code>/inspva</code>.</td>
+          </tr>
+          <tr>
+            <td><code>Inertial_data/xsens_imu.csv</code></td>
+            <td>Xsens IMU rows used for <code>/imu/data_raw</code> and optionally <code>/imu/mag</code>.</td>
+          </tr>
+          <tr>
+            <td><code>LiDAR/Ouster/*.bin</code></td>
+            <td>Ouster scans.</td>
+          </tr>
+          <tr>
+            <td><code>LiDAR/Velodyne/*.bin</code></td>
+            <td>Velodyne scans.</td>
+          </tr>
+          <tr>
+            <td><code>LiDAR/Avia/*.bin</code></td>
+            <td>Livox Avia scans. Playback of this topic requires <code>livox_ros_driver</code>.</td>
+          </tr>
+          <tr>
+            <td><code>LiDAR/Aeva/*.bin</code></td>
+            <td>Aeva scans.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Known Timeline Labels</h3>
+      <ul class="tag-list">
+        <li>inspva</li>
+        <li>imu</li>
+        <li>ouster</li>
+        <li>velodyne</li>
+        <li>livox_avia</li>
+        <li>aeva</li>
+      </ul>
+
+      <div class="note">
+        Some local HeLiPR sequences use suffixed LiDAR folder names such as <code>Oustera</code>, <code>Velodynea</code>, <code>Aviaa</code>, or <code>Aevaa</code>; the converter accepts both the normal and suffixed names.
+      </div>
+      <div class="note warning">
+        If a timeline contains a LiDAR label but the corresponding folder is absent, the converter excludes that sensor from the converted manifest instead of failing.
+      </div>
+    </section>
+
+    <section id="converted">
+      <h2>Converted Dataloader Layout</h2>
+      <pre><code>&lt;converted_root&gt;/
+  &lt;dataset&gt;/
+    &lt;sequence&gt;/
+      manifest.yaml
+      timeline.csv
+      sensors/
+        lidar/
+          &lt;lidar_name&gt;/
+            &lt;timestamp_ns&gt;.bin
+        imu/
+          xsens_imu.csv
+        gps/
+          gps.csv
+        inertial/
+          inspva.csv
+        radar/
+          polar/
+            &lt;timestamp_ns&gt;.png</code></pre>
+
+      <p><code>manifest.yaml</code> records the dataset name, sequence name, available sensors, default topics, frame IDs, and primary LiDAR. <code>timeline.csv</code> has normalized rows:</p>
+      <pre><code>timestamp_ns,sensor,relative_path</code></pre>
+
+      <h3>Storage Modes</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>reference</code></td>
+            <td>Default. Writes metadata only and stores absolute paths to raw files.</td>
+          </tr>
+          <tr>
+            <td><code>symlink</code></td>
+            <td>Creates a unified folder tree with symlinks.</td>
+          </tr>
+          <tr>
+            <td><code>hardlink</code></td>
+            <td>Creates a unified folder tree with hardlinks.</td>
+          </tr>
+          <tr>
+            <td><code>hardlink_or_copy</code></td>
+            <td>Tries hardlinks first, then copies on failure.</td>
+          </tr>
+          <tr>
+            <td><code>copy</code></td>
+            <td>Copies files into the converted tree.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="commands">
+      <h2>Commands</h2>
+      <div class="grid">
+        <div>
+          <h3>Convert MulRan</h3>
+          <pre><code>rosrun dataloader dataloader_convert.py \
+  --dataset mulran \
+  --source /data/raw/MulRan/KAIST01 \
+  --output /data/converted_datasets \
+  --sequence KAIST01</code></pre>
+        </div>
+        <div>
+          <h3>Convert HeLiPR</h3>
+          <pre><code>rosrun dataloader dataloader_convert.py \
+  --dataset helipr \
+  --source /data/raw/HeLiPR/DCC01 \
+  --output /data/converted_datasets \
+  --sequence DCC01</code></pre>
+        </div>
+      </div>
+
+      <h3>Partial Conversion For Quick Tests</h3>
+      <pre><code>rosrun dataloader dataloader_convert.py \
+  --dataset helipr \
+  --source /data/raw/HeLiPR/KAIST05 \
+  --output /data/converted_datasets \
+  --sequence KAIST05_test \
+  --start-lidar-frame 0 \
+  --end-lidar-frame 20</code></pre>
+    </section>
+
+    <section id="playback">
+      <h2>Playback</h2>
+      <p>Edit <code>config/mulran.yaml</code> or <code>config/helipr.yaml</code>, then run:</p>
+      <pre><code>roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/mulran.yaml</code></pre>
+
+      <h3>LiDAR Frame Slicing</h3>
+      <pre><code>start_lidar_frame: 100
+end_lidar_frame: 200</code></pre>
+      <p>The frame indices are 0-based. The player uses the selected primary LiDAR timestamps to define the playback time range, then publishes all enabled topics whose timestamps fall inside that range.</p>
+    </section>
+  </main>
+</body>
+</html>
