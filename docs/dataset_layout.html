@@ -388,6 +388,9 @@
       <div class="note">
         일부 local HeLiPR sequence는 <code>Oustera</code>, <code>Velodynea</code>, <code>Aviaa</code>, <code>Aevaa</code>처럼 뒤에 <code>a</code>가 붙은 LiDAR 폴더명을 사용합니다. converter는 일반 폴더명과 suffixed 폴더명을 모두 허용합니다.
       </div>
+      <div class="note">
+        <code>livox_avia</code>를 재생하려면 <code>/home/beom/livox_ws/devel/setup.zsh</code> 또는 <code>setup.bash</code>를 source해서 <code>livox_ros_driver</code> message가 ROS 환경에 잡혀 있어야 합니다.
+      </div>
       <div class="note warning">
         timeline에 LiDAR label이 있어도 해당 sensor 폴더가 없으면 실패하지 않고 converted manifest에서 그 sensor를 제외합니다.
       </div>
@@ -484,6 +487,13 @@
     <section id="playback">
       <h2>재생</h2>
       <p><code>config/mulran.yaml</code> 또는 <code>config/helipr.yaml</code>을 수정한 뒤 실행합니다.</p>
+      <pre><code>source /opt/ros/noetic/setup.zsh
+source /home/beom/livox_ws/devel/setup.zsh      # livox_avia를 켤 때 필요
+source /home/beom/dynamic_ws/devel/setup.zsh
+
+roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/helipr.yaml</code></pre>
+
+      <p>MulRan만 재생하거나 HeLiPR에서 <code>livox_avia: false</code>를 유지한다면 <code>livox_ws</code> source는 필요하지 않습니다.</p>
       <pre><code>roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/mulran.yaml</code></pre>
 
       <h3>LiDAR Frame 구간 선택</h3>

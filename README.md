@@ -16,4 +16,10 @@ The default converter mode is `reference`, so converted datasets stay small by s
 roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/mulran.yaml
 ```
 
+For HeLiPR `livox_avia`, source the Livox workspace first:
+
+```bash
+source /home/beom/livox_ws/devel/setup.bash
+```
+
 Dataset folder requirements are documented in `docs/dataset_layout.html`.
