@@ -416,11 +416,27 @@
           inspva.csv
         radar/
           polar/
-            &lt;timestamp_ns&gt;.png</code></pre>
+            &lt;timestamp_ns&gt;.png
+      poses/
+        gt.tum
+        gt_ouster.tum
+        gt_global_ouster.tum</code></pre>
 
       <p><code>manifest.yaml</code>에는 dataset 이름, sequence 이름, 사용 가능한 sensor, 기본 topic, frame ID, primary LiDAR 정보가 저장됩니다. <code>timeline.csv</code>는 아래 형식으로 정규화됩니다.</p>
       <pre><code>timestamp_ns,sensor,relative_path</code></pre>
-      <p>원본 dataset에 GT pose가 있으면 converter가 TUM format으로 변환해서 <code>poses/</code> 아래에 저장하고, <code>manifest.yaml</code>의 <code>poses.gt</code>에 기록합니다.</p>
+      <p>원본 dataset에 GT pose가 있으면 converter가 TUM format으로 변환해서 <code>poses/</code> 아래에 저장하고, <code>manifest.yaml</code>의 <code>poses.gt</code>와 <code>poses.gt_global</code>에 기록합니다.</p>
+
+      <h3>GT Pose Manifest 예시</h3>
+      <pre><code>poses:
+  gt:
+    default: poses/gt_ouster.tum
+    ouster: poses/gt_ouster.tum
+    velodyne: poses/gt_velodyne.tum
+    livox_avia: poses/gt_livox_avia.tum
+    aeva: poses/gt_aeva.tum
+  gt_global:
+    default: poses/gt_global_ouster.tum
+    ouster: poses/gt_global_ouster.tum</code></pre>
 
       <h3>Storage Mode</h3>
       <table>
@@ -552,6 +568,29 @@ p_publish = T_publish * p_lidar</code></pre>
 
       <p>MulRan은 <code>global_pose.csv</code>를 <code>poses/gt.tum</code>으로 변환합니다. HeLiPR은 <code>LiDAR_GT/Ouster_gt.txt</code>, <code>Velodyne_gt.txt</code>, <code>Avia_gt.txt</code>, <code>Aeva_gt.txt</code>를 LiDAR별 TUM pose로 저장하고, <code>global_*</code> GT도 <code>gt_global</code> pose로 함께 저장합니다.</p>
       <p><code>pose_source: gt_global</code>을 사용하면 manifest에 기록된 global GT pose를 자동 선택합니다.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th><code>pose_source</code></th>
+            <th>동작</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>custom</code></td>
+            <td><code>pose_file</code>에 직접 지정한 TUM pose를 사용합니다.</td>
+          </tr>
+          <tr>
+            <td><code>gt</code></td>
+            <td>converter가 저장한 local GT pose를 사용합니다. HeLiPR은 <code>primary_lidar</code>에 맞는 LiDAR별 GT를 고릅니다.</td>
+          </tr>
+          <tr>
+            <td><code>gt_global</code></td>
+            <td>converter가 저장한 global GT pose를 사용합니다.</td>
+          </tr>
+        </tbody>
+      </table>
 
       <div class="note">
         <code>transform.enabled: false</code>이면 기존처럼 raw LiDAR frame으로 publish합니다. SLAM을 직접 돌리는 경우에는 이 설정을 끄는 것이 일반적입니다.
