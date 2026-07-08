@@ -40,6 +40,8 @@ def _ensure_parent(path):
 def _place_file(src, dst, mode):
     if not src.is_file():
         return False
+    if mode == "reference":
+        return True
     _ensure_parent(dst)
     if dst.exists() or dst.is_symlink():
         return True
@@ -47,6 +49,9 @@ def _place_file(src, dst, mode):
         os.symlink(src, dst)
         return True
     if mode == "hardlink":
+        os.link(src, dst)
+        return True
+    if mode == "hardlink_or_copy":
         try:
             os.link(src, dst)
             return True
@@ -57,14 +62,54 @@ def _place_file(src, dst, mode):
     return True
 
 
-def _event_rel_path(definition, sensor, stamp):
+def _source_dir(source, spec):
+    raw_dirs = spec.get("raw_dirs")
+    if raw_dirs is None:
+        raw_dirs = [spec["raw_dir"]]
+    for raw_dir in raw_dirs:
+        candidate = source / raw_dir
+        if candidate.is_dir():
+            return candidate
+    return source / raw_dirs[0]
+
+
+def _event_rel_path(definition, sensor, stamp, source_dir=None, link_mode="reference"):
     spec = definition["sensors"][sensor]
+    if link_mode == "reference":
+        if "out_file" in spec:
+            return None
+        return str((source_dir / "{}{}".format(stamp, spec["suffix"])).resolve())
     if "out_file" in spec:
         return spec["out_file"]
     return str(Path(spec["out_dir"]) / "{}{}".format(stamp, spec["suffix"]))
 
 
-def convert_dataset(dataset, source, output_root, sequence=None, link_mode="hardlink", overwrite=False):
+def _slice_by_lidar_frames(rows, primary_lidar, start_lidar_frame=None, end_lidar_frame=None):
+    if start_lidar_frame is None and end_lidar_frame is None:
+        return rows
+    lidar_stamps = [row["timestamp_ns"] for row in rows if row["sensor"] == primary_lidar]
+    if not lidar_stamps:
+        return []
+    start_index = 0 if start_lidar_frame is None else max(0, start_lidar_frame)
+    end_index = len(lidar_stamps) - 1 if end_lidar_frame is None or end_lidar_frame < 0 else end_lidar_frame
+    end_index = min(end_index, len(lidar_stamps) - 1)
+    if start_index > end_index:
+        return []
+    start_stamp = lidar_stamps[start_index]
+    end_stamp = lidar_stamps[end_index]
+    return [row for row in rows if start_stamp <= row["timestamp_ns"] <= end_stamp]
+
+
+def convert_dataset(
+    dataset,
+    source,
+    output_root,
+    sequence=None,
+    link_mode="reference",
+    overwrite=False,
+    start_lidar_frame=None,
+    end_lidar_frame=None,
+):
     definition = dataset_definition(dataset)
     source = Path(source).expanduser().resolve()
     if sequence is None:
@@ -81,29 +126,61 @@ def convert_dataset(dataset, source, output_root, sequence=None, link_mode="hard
         shutil.rmtree(sequence_dir)
     sequence_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = _read_source_timeline(timeline_path, definition["label_to_sensor"])
-    present_sensors = sorted({row["sensor"] for row in rows})
+    source_rows = _read_source_timeline(timeline_path, definition["label_to_sensor"])
+    source_rows = _slice_by_lidar_frames(source_rows, definition["primary_lidar"], start_lidar_frame, end_lidar_frame)
+    source_sensors = sorted({row["sensor"] for row in source_rows})
+    source_dirs = {}
+    for sensor in source_sensors:
+        spec = definition["sensors"][sensor]
+        if "raw_dir" not in spec and "raw_dirs" not in spec:
+            continue
+        candidate = _source_dir(source, spec)
+        if candidate.is_dir():
+            source_dirs[sensor] = candidate
 
     missing_files = []
     linked_files = 0
-    for sensor in present_sensors:
+    rows = []
+    for row in source_rows:
+        sensor = row["sensor"]
         spec = definition["sensors"][sensor]
         if "raw_file" in spec:
             src = source / spec["raw_file"]
-            dst = sequence_dir / spec["out_file"]
-            if _place_file(src, dst, link_mode):
-                linked_files += 1
-            else:
+            if not src.is_file():
                 missing_files.append(str(src))
+                continue
+        else:
+            if sensor not in source_dirs:
+                continue
+            src = source_dirs[sensor] / "{}{}".format(row["timestamp_ns"], spec["suffix"])
+            if not src.is_file():
+                missing_files.append(str(src))
+                continue
 
-    for row in rows:
-        sensor = row["sensor"]
-        spec = definition["sensors"][sensor]
-        row["relative_path"] = _event_rel_path(definition, sensor, row["timestamp_ns"])
-        if "raw_dir" not in spec:
-            continue
-        src = source / spec["raw_dir"] / "{}{}".format(row["timestamp_ns"], spec["suffix"])
+        row["relative_path"] = _event_rel_path(
+            definition,
+            sensor,
+            row["timestamp_ns"],
+            source_dir=source_dirs.get(sensor),
+            link_mode=link_mode,
+        )
+        if row["relative_path"] is None:
+            row["relative_path"] = str((source / spec["raw_file"]).resolve())
         dst = sequence_dir / row["relative_path"]
+        if _place_file(src, dst, link_mode):
+            linked_files += 1
+        else:
+            missing_files.append(str(src))
+            continue
+        rows.append(row)
+
+    present_sensors = sorted({row["sensor"] for row in rows})
+    for sensor in present_sensors:
+        spec = definition["sensors"][sensor]
+        if "raw_file" not in spec:
+            continue
+        src = source / spec["raw_file"]
+        dst = sequence_dir / spec["out_file"]
         if _place_file(src, dst, link_mode):
             linked_files += 1
         else:
@@ -126,7 +203,7 @@ def convert_dataset(dataset, source, output_root, sequence=None, link_mode="hard
     for name, spec in definition["sensors"].items():
         if name not in present_sensors:
             continue
-        sensors[name] = {
+        sensor_spec = {
             key: value
             for key, value in spec.items()
             if key
@@ -135,12 +212,16 @@ def convert_dataset(dataset, source, output_root, sequence=None, link_mode="hard
                 "format",
                 "out_dir",
                 "out_file",
+                "raw_dirs",
                 "suffix",
                 "topic",
                 "mag_topic",
                 "frame_id",
             }
         }
+        if link_mode == "reference" and "raw_file" in spec:
+            sensor_spec["out_file"] = str((source / spec["raw_file"]).resolve())
+        sensors[name] = sensor_spec
 
     primary_lidar = definition["primary_lidar"]
     lidar_count = sum(1 for row in rows if row["sensor"] == primary_lidar)
@@ -149,6 +230,7 @@ def convert_dataset(dataset, source, output_root, sequence=None, link_mode="hard
         "dataset": dataset,
         "sequence": sequence,
         "source_path": str(source),
+        "storage_mode": link_mode,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "time_unit": "nanoseconds",
         "timeline": "timeline.csv",
@@ -182,11 +264,13 @@ def build_arg_parser():
     parser.add_argument("--sequence", default=None, help="Sequence name. Defaults to source directory name.")
     parser.add_argument(
         "--link-mode",
-        default="hardlink",
-        choices=["hardlink", "symlink", "copy"],
-        help="How to place large sensor files. hardlink falls back to copy across filesystems.",
+        default="reference",
+        choices=["reference", "symlink", "hardlink", "hardlink_or_copy", "copy"],
+        help="How to place large sensor files. reference is the default and writes only manifest/timeline metadata.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing converted sequence.")
+    parser.add_argument("--start-lidar-frame", type=int, default=None, help="Optional 0-based primary LiDAR start frame for partial conversion.")
+    parser.add_argument("--end-lidar-frame", type=int, default=None, help="Optional 0-based primary LiDAR end frame for partial conversion.")
     return parser
 
 
@@ -199,6 +283,8 @@ def main(argv=None):
         sequence=args.sequence,
         link_mode=args.link_mode,
         overwrite=args.overwrite,
+        start_lidar_frame=args.start_lidar_frame,
+        end_lidar_frame=args.end_lidar_frame,
     )
     print("converted sequence: {}".format(result["sequence_dir"]))
     print("events: {}".format(result["events"]))
@@ -211,4 +297,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
-

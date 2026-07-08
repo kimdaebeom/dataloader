@@ -29,7 +29,7 @@ DATASET_DEFINITIONS = {
             "radar": {
                 "kind": "image",
                 "format": "mono8_png",
-                "raw_dir": "sensor_data/radar/polar",
+                "raw_dirs": ["sensor_data/radar/polar", "sensor_data/radara/polar"],
                 "out_dir": "sensors/radar/polar",
                 "suffix": ".png",
                 "topic": "/radar/polar",
@@ -86,7 +86,7 @@ DATASET_DEFINITIONS = {
             "ouster": {
                 "kind": "pointcloud",
                 "format": "helipr_ouster",
-                "raw_dir": "LiDAR/Ouster",
+                "raw_dirs": ["LiDAR/Ouster", "LiDAR/Oustera"],
                 "out_dir": "sensors/lidar/ouster",
                 "suffix": ".bin",
                 "topic": "/ouster/points",
@@ -95,7 +95,7 @@ DATASET_DEFINITIONS = {
             "velodyne": {
                 "kind": "pointcloud",
                 "format": "helipr_velodyne",
-                "raw_dir": "LiDAR/Velodyne",
+                "raw_dirs": ["LiDAR/Velodyne", "LiDAR/Velodynea"],
                 "out_dir": "sensors/lidar/velodyne",
                 "suffix": ".bin",
                 "topic": "/velodyne/points",
@@ -104,7 +104,7 @@ DATASET_DEFINITIONS = {
             "livox_avia": {
                 "kind": "livox_custom",
                 "format": "helipr_livox_avia",
-                "raw_dir": "LiDAR/Avia",
+                "raw_dirs": ["LiDAR/Avia", "LiDAR/Aviaa"],
                 "out_dir": "sensors/lidar/avia",
                 "suffix": ".bin",
                 "topic": "/avia/points",
@@ -113,7 +113,7 @@ DATASET_DEFINITIONS = {
             "aeva": {
                 "kind": "pointcloud",
                 "format": "helipr_aeva",
-                "raw_dir": "LiDAR/Aeva",
+                "raw_dirs": ["LiDAR/Aeva", "LiDAR/Aevaa"],
                 "out_dir": "sensors/lidar/aeva",
                 "suffix": ".bin",
                 "topic": "/aeva/points",
@@ -147,4 +147,3 @@ def resolve_sequence_dir(data_root, dataset, sequence):
             dataset, sequence, root
         )
     )
-

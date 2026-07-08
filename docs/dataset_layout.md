@@ -37,6 +37,10 @@ Known MulRan timeline sensor names:
 - `gps`
 - `imu`
 
+Some local MulRan sequences store radar as `sensor_data/radara/polar`; the converter accepts both `radar/polar` and `radara/polar`.
+
+If a timeline contains `radar` but neither radar folder exists, the converter excludes radar from the converted manifest instead of failing.
+
 ## Raw HeLiPR Layout
 
 Select or pass one HeLiPR sequence directory as `--source`.
@@ -67,6 +71,10 @@ Required files:
 - `LiDAR/Velodyne/*.bin`: Velodyne scans.
 - `LiDAR/Avia/*.bin`: Livox Avia scans. Playback of this topic requires `livox_ros_driver`.
 - `LiDAR/Aeva/*.bin`: Aeva scans.
+
+Some local HeLiPR sequences use suffixed LiDAR folder names such as `Oustera`, `Velodynea`, `Aviaa`, or `Aevaa`; the converter accepts both the normal and suffixed names.
+
+If a timeline contains a LiDAR label but the corresponding folder is absent, the converter excludes that sensor from the converted manifest instead of failing. This matches local sequences where, for example, `velodyne` labels exist but no Velodyne folder is present.
 
 Known HeLiPR timeline sensor names:
 
@@ -108,7 +116,14 @@ The converter writes one sequence to:
 timestamp_ns,sensor,relative_path
 ```
 
-Large per-frame files are not re-encoded. By default the converter uses hardlinks to reduce disk usage and falls back to copying if hardlinks are not possible.
+Large per-frame files are not re-encoded. By default the converter uses `reference` mode: it writes `manifest.yaml` and `timeline.csv`, and the timeline points to the original raw files by absolute path. This uses almost no extra disk space and works on external drives that do not support symlinks or hardlinks.
+
+Other storage modes:
+
+- `--link-mode symlink`: create a unified folder tree with symlinks.
+- `--link-mode hardlink`: create a unified folder tree with hardlinks.
+- `--link-mode hardlink_or_copy`: try hardlinks, then copy on failure.
+- `--link-mode copy`: copy files into the converted tree.
 
 ## Convert Examples
 
@@ -128,7 +143,17 @@ rosrun dataloader dataloader_convert.py \
   --sequence DCC01
 ```
 
-Use `--link-mode copy` if the converted dataset must be independent from the raw dataset.
+Use `--link-mode copy` if the converted dataset must be independent from the raw dataset. For quick tests, convert only a LiDAR frame range:
+
+```bash
+rosrun dataloader dataloader_convert.py \
+  --dataset helipr \
+  --source /data/raw/HeLiPR/KAIST05 \
+  --output /data/converted_datasets \
+  --sequence KAIST05_test \
+  --start-lidar-frame 0 \
+  --end-lidar-frame 20
+```
 
 ## Playback Examples
 
@@ -146,4 +171,3 @@ end_lidar_frame: 200
 ```
 
 The frame indices are 0-based. The player uses the selected primary LiDAR timestamps to define the playback time range, then publishes all enabled topics whose timestamps fall inside that range.
-
