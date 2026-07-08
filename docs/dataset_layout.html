@@ -239,6 +239,7 @@
       <a href="#converted">변환 후 구조</a>
       <a href="#commands">명령어</a>
       <a href="#playback">재생</a>
+      <a href="#pose-transform">Pose Transform</a>
     </nav>
   </header>
 
@@ -500,6 +501,48 @@ roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/hel
       <pre><code>start_lidar_frame: 100
 end_lidar_frame: 200</code></pre>
       <p>frame index는 0-based입니다. player는 선택한 primary LiDAR timestamp로 playback 시간 구간을 정하고, 그 구간 안에 들어오는 enabled topic만 publish합니다.</p>
+    </section>
+
+    <section id="pose-transform">
+      <h2>Pose 기반 Transform 재생</h2>
+      <p>SLAM 또는 GT pose를 이미 가지고 있는 실험에서는 playback 단계에서 LiDAR point cloud를 pose 기준 frame으로 변환해서 publish할 수 있습니다. pose는 TUM format을 사용합니다.</p>
+
+      <h3>TUM Pose Format</h3>
+      <pre><code>timestamp tx ty tz qx qy qz qw</code></pre>
+      <p><code>timestamp</code>는 seconds 또는 nanoseconds 모두 허용합니다. player는 sensor timestamp와 가장 가까운 pose를 찾고, 기본 50ms 이내일 때만 매칭합니다.</p>
+
+      <h3>추가 4x4 Matrix</h3>
+      <p>서로 다른 sequence에서 만든 submap을 같은 장소 기준으로 맞출 때는 추가 4x4 matrix를 적용할 수 있습니다. txt 파일에는 숫자 16개를 저장합니다.</p>
+      <pre><code>r00 r01 r02 tx
+r10 r11 r12 ty
+r20 r21 r22 tz
+0   0   0   1</code></pre>
+
+      <p>기본 적용 순서는 아래와 같습니다.</p>
+      <pre><code>T_publish = T_static * T_pose
+p_publish = T_publish * p_lidar</code></pre>
+      <p><code>T_pose</code>는 TUM pose에서 읽은 pose이고, <code>T_static</code>은 <code>static_matrix_file</code>에서 읽은 추가 submap 정합 matrix입니다.</p>
+      <p><code>static_transform_order: before_pose</code>로 설정하면 <code>T_publish = T_pose * T_static</code> 순서로 적용합니다. LiDAR-to-body extrinsic처럼 pose 앞단에 붙일 transform이 필요할 때 사용합니다.</p>
+
+      <h3>Config Example</h3>
+      <pre><code>transform:
+  enabled: true
+  pose_file: /path/to/poses.tum
+  pose_format: tum
+  pose_timestamp_tolerance_ns: 50000000
+  static_matrix_file: /path/to/submap_transform.txt
+  static_transform_order: after_pose
+  apply_to_pointcloud: true
+  output_frame_id: map
+  publish_pose: true
+  pose_topic: /dataloader/pose</code></pre>
+
+      <div class="note">
+        <code>transform.enabled: false</code>이면 기존처럼 raw LiDAR frame으로 publish합니다. SLAM을 직접 돌리는 경우에는 이 설정을 끄는 것이 일반적입니다.
+      </div>
+      <div class="note">
+        <code>apply_to_pointcloud: true</code>이면 <code>ouster</code>, <code>velodyne</code>, <code>aeva</code>, <code>livox_avia</code> point의 <code>x,y,z</code>에 transform을 적용합니다. image, GPS, IMU 값은 변환하지 않습니다.
+      </div>
     </section>
   </main>
 </body>

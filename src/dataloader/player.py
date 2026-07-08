@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 
 import csv
-import os
 import struct
+from bisect import bisect_left
 from pathlib import Path
 
 import cv2
 import numpy as np
 import rospy
-import sensor_msgs.point_cloud2 as pc2
 import yaml
+from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import Image, Imu, MagneticField, NavSatFix, PointCloud2, PointField
 
@@ -75,8 +75,147 @@ def _load_csv_rows(path):
     return rows
 
 
+def _timestamp_to_ns(value):
+    timestamp = float(value)
+    if abs(timestamp) < 1.0e12:
+        return int(round(timestamp * 1.0e9))
+    return int(round(timestamp))
+
+
 def _field(name, offset, datatype):
     return PointField(name=name, offset=offset, datatype=POINT_FIELD_TYPES[datatype], count=1)
+
+
+def _quat_to_matrix(qx, qy, qz, qw):
+    quat = np.array([qx, qy, qz, qw], dtype=np.float64)
+    norm = np.linalg.norm(quat)
+    if norm == 0:
+        raise ValueError("zero quaternion in TUM pose")
+    qx, qy, qz, qw = quat / norm
+    xx, yy, zz = qx * qx, qy * qy, qz * qz
+    xy, xz, yz = qx * qy, qx * qz, qy * qz
+    wx, wy, wz = qw * qx, qw * qy, qw * qz
+    return np.array(
+        [
+            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
+            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
+            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
+        ],
+        dtype=np.float64,
+    )
+
+
+def _matrix_to_quat(matrix):
+    rotation = matrix[:3, :3]
+    trace = np.trace(rotation)
+    if trace > 0.0:
+        scale = np.sqrt(trace + 1.0) * 2.0
+        qw = 0.25 * scale
+        qx = (rotation[2, 1] - rotation[1, 2]) / scale
+        qy = (rotation[0, 2] - rotation[2, 0]) / scale
+        qz = (rotation[1, 0] - rotation[0, 1]) / scale
+    else:
+        axis = int(np.argmax(np.diag(rotation)))
+        if axis == 0:
+            scale = np.sqrt(1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2]) * 2.0
+            qw = (rotation[2, 1] - rotation[1, 2]) / scale
+            qx = 0.25 * scale
+            qy = (rotation[0, 1] + rotation[1, 0]) / scale
+            qz = (rotation[0, 2] + rotation[2, 0]) / scale
+        elif axis == 1:
+            scale = np.sqrt(1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2]) * 2.0
+            qw = (rotation[0, 2] - rotation[2, 0]) / scale
+            qx = (rotation[0, 1] + rotation[1, 0]) / scale
+            qy = 0.25 * scale
+            qz = (rotation[1, 2] + rotation[2, 1]) / scale
+        else:
+            scale = np.sqrt(1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1]) * 2.0
+            qw = (rotation[1, 0] - rotation[0, 1]) / scale
+            qx = (rotation[0, 2] + rotation[2, 0]) / scale
+            qy = (rotation[1, 2] + rotation[2, 1]) / scale
+            qz = 0.25 * scale
+    quat = np.array([qx, qy, qz, qw], dtype=np.float64)
+    quat /= np.linalg.norm(quat)
+    return quat
+
+
+def _load_tum_poses(path):
+    poses = []
+    with Path(path).expanduser().open("r") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.replace(",", " ").split()
+            if len(parts) < 8:
+                continue
+            stamp_ns = _timestamp_to_ns(parts[0])
+            tx, ty, tz = (float(value) for value in parts[1:4])
+            qx, qy, qz, qw = (float(value) for value in parts[4:8])
+            transform = np.eye(4, dtype=np.float64)
+            transform[:3, :3] = _quat_to_matrix(qx, qy, qz, qw)
+            transform[:3, 3] = [tx, ty, tz]
+            poses.append((stamp_ns, transform))
+    poses.sort(key=lambda item: item[0])
+    return poses
+
+
+def _load_matrix_txt(path):
+    values = []
+    with Path(path).expanduser().open("r") as handle:
+        for line in handle:
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            values.extend(float(value) for value in line.replace(",", " ").split())
+    if len(values) != 16:
+        raise ValueError("4x4 matrix file must contain 16 numbers: {}".format(path))
+    return np.array(values, dtype=np.float64).reshape((4, 4))
+
+
+def _transform_pointcloud2(msg, transform):
+    if msg.width * msg.height == 0:
+        return msg
+    if msg.is_bigendian:
+        raise ValueError("big-endian PointCloud2 transform is not supported")
+    offsets = {field.name: field.offset for field in msg.fields}
+    if not {"x", "y", "z"} <= set(offsets):
+        raise ValueError("PointCloud2 has no x/y/z fields")
+    if offsets["x"] != 0 or offsets["y"] != 4 or offsets["z"] != 8:
+        raise ValueError("PointCloud2 x/y/z offsets are not supported")
+    data = bytearray(msg.data)
+    count = msg.width * msg.height
+    coords = np.ndarray(shape=(count, 3), dtype="<f4", buffer=data, strides=(msg.point_step, 4))
+    transformed = coords.astype(np.float64) @ transform[:3, :3].T + transform[:3, 3]
+    coords[:] = transformed.astype(np.float32)
+    msg.data = bytes(data)
+    return msg
+
+
+def _transform_livox_msg(msg, transform):
+    rotation = transform[:3, :3]
+    translation = transform[:3, 3]
+    for point in msg.points:
+        xyz = rotation @ np.array([point.x, point.y, point.z], dtype=np.float64) + translation
+        point.x = float(xyz[0])
+        point.y = float(xyz[1])
+        point.z = float(xyz[2])
+    return msg
+
+
+def _pose_stamped(timestamp_ns, transform, frame_id):
+    msg = PoseStamped()
+    msg.header.stamp = _stamp_from_ns(timestamp_ns)
+    msg.header.frame_id = frame_id
+    msg.pose.position.x = float(transform[0, 3])
+    msg.pose.position.y = float(transform[1, 3])
+    msg.pose.position.z = float(transform[2, 3])
+    qx, qy, qz, qw = _matrix_to_quat(transform)
+    msg.pose.orientation.x = float(qx)
+    msg.pose.orientation.y = float(qy)
+    msg.pose.orientation.z = float(qz)
+    msg.pose.orientation.w = float(qw)
+    return msg
 
 
 def _cloud_from_raw(path, timestamp_ns, frame_id, fields, point_step):
@@ -236,10 +375,17 @@ class UnifiedDatasetPlayer:
         self.publish_flags = rospy.get_param("~publish", {})
         self.topic_overrides = rospy.get_param("~topics", {})
         self.frame_overrides = rospy.get_param("~frame_ids", {})
+        self.transform_config = rospy.get_param("~transform", {})
+        self.transform_enabled = bool(self.transform_config.get("enabled", False))
+        self.pose_stamps = []
+        self.pose_mats = []
+        self.static_transform = np.eye(4, dtype=np.float64)
+        self.pose_pub = None
 
         self.csv_cache = {}
         self.publishers = {}
         self.clock_pub = None
+        self._prepare_transform()
         self._prepare_range()
         self._prepare_publishers()
         self._prepare_csv_cache()
@@ -283,6 +429,9 @@ class UnifiedDatasetPlayer:
     def _prepare_publishers(self):
         if bool(self.publish_flags.get("clock", True)):
             self.clock_pub = rospy.Publisher("/clock", Clock, queue_size=10)
+        if self.transform_enabled and bool(self.transform_config.get("publish_pose", False)):
+            pose_topic = self.transform_config.get("pose_topic", "/dataloader/pose")
+            self.pose_pub = rospy.Publisher(pose_topic, PoseStamped, queue_size=10)
         for sensor, spec in self.manifest.get("sensors", {}).items():
             if not self._sensor_enabled(sensor):
                 continue
@@ -311,6 +460,62 @@ class UnifiedDatasetPlayer:
         for sensor, spec in self.manifest.get("sensors", {}).items():
             if spec["kind"] == "csv" and self._sensor_enabled(sensor):
                 self.csv_cache[sensor] = _load_csv_rows(self.sequence_dir / spec["out_file"])
+
+    def _prepare_transform(self):
+        if not self.transform_enabled:
+            return
+        matrix_file = self.transform_config.get("static_matrix_file", "")
+        if matrix_file:
+            self.static_transform = _load_matrix_txt(matrix_file)
+        pose_file = self.transform_config.get("pose_file", "")
+        if pose_file:
+            pose_format = self.transform_config.get("pose_format", "tum")
+            if pose_format != "tum":
+                raise RuntimeError("unsupported pose_format '{}'; only 'tum' is supported".format(pose_format))
+            poses = _load_tum_poses(pose_file)
+            if not poses:
+                raise RuntimeError("no TUM poses loaded from {}".format(pose_file))
+            self.pose_stamps = [stamp for stamp, _ in poses]
+            self.pose_mats = [mat for _, mat in poses]
+            rospy.loginfo("loaded %d TUM poses from %s", len(poses), pose_file)
+
+    def _nearest_pose(self, timestamp_ns):
+        if not self.pose_stamps:
+            return None
+        index = bisect_left(self.pose_stamps, timestamp_ns)
+        candidates = []
+        if index < len(self.pose_stamps):
+            candidates.append(index)
+        if index > 0:
+            candidates.append(index - 1)
+        best_index = min(candidates, key=lambda item: abs(self.pose_stamps[item] - timestamp_ns))
+        delta = abs(self.pose_stamps[best_index] - timestamp_ns)
+        tolerance = int(self.transform_config.get("pose_timestamp_tolerance_ns", 50000000))
+        if delta > tolerance:
+            return None
+        return self.pose_mats[best_index]
+
+    def _event_transform(self, timestamp_ns):
+        if not self.transform_enabled:
+            return None
+        pose = self._nearest_pose(timestamp_ns) if self.pose_stamps else np.eye(4, dtype=np.float64)
+        if pose is None:
+            return None
+        order = self.transform_config.get("static_transform_order", "after_pose")
+        if order == "before_pose":
+            return pose @ self.static_transform
+        return self.static_transform @ pose
+
+    def _output_frame_for(self, sensor, spec):
+        if self.transform_enabled and bool(self.transform_config.get("apply_to_pointcloud", True)):
+            return self.transform_config.get("output_frame_id", self._frame_for(sensor, spec))
+        return self._frame_for(sensor, spec)
+
+    def _maybe_publish_pose(self, timestamp_ns, transform):
+        if self.pose_pub is None or transform is None:
+            return
+        frame_id = self.transform_config.get("output_frame_id", "map")
+        self.pose_pub.publish(_pose_stamped(timestamp_ns, transform, frame_id))
 
     def run(self):
         if not self.play_events:
@@ -345,11 +550,29 @@ class UnifiedDatasetPlayer:
         try:
             if spec["kind"] == "pointcloud":
                 reader = POINTCLOUD_READERS[spec["format"]]
-                self.publishers[sensor].publish(reader(path, event["timestamp_ns"], self._frame_for(sensor, spec)))
+                transform = self._event_transform(event["timestamp_ns"])
+                msg = reader(path, event["timestamp_ns"], self._frame_for(sensor, spec))
+                if transform is not None and bool(self.transform_config.get("apply_to_pointcloud", True)):
+                    msg = _transform_pointcloud2(msg, transform)
+                    msg.header.frame_id = self.transform_config.get("output_frame_id", msg.header.frame_id)
+                if transform is not None:
+                    self._maybe_publish_pose(event["timestamp_ns"], transform)
+                elif self.transform_enabled:
+                    rospy.logwarn_throttle(2.0, "no pose matched at %d; publishing raw %s", event["timestamp_ns"], sensor)
+                self.publishers[sensor].publish(msg)
             elif spec["kind"] == "image":
                 self.publishers[sensor].publish(self._load_image(path, event["timestamp_ns"], self._frame_for(sensor, spec)))
             elif spec["kind"] == "livox_custom":
-                self.publishers[sensor].publish(_helipr_livox_avia(path, event["timestamp_ns"], self._frame_for(sensor, spec)))
+                transform = self._event_transform(event["timestamp_ns"])
+                msg = _helipr_livox_avia(path, event["timestamp_ns"], self._frame_for(sensor, spec))
+                if transform is not None and bool(self.transform_config.get("apply_to_pointcloud", True)):
+                    msg = _transform_livox_msg(msg, transform)
+                    msg.header.frame_id = self.transform_config.get("output_frame_id", msg.header.frame_id)
+                if transform is not None:
+                    self._maybe_publish_pose(event["timestamp_ns"], transform)
+                elif self.transform_enabled:
+                    rospy.logwarn_throttle(2.0, "no pose matched at %d; publishing raw %s", event["timestamp_ns"], sensor)
+                self.publishers[sensor].publish(msg)
             elif spec["format"] == "mulran_gps":
                 msg = self._gps_msg(event["timestamp_ns"], self.csv_cache[sensor].get(event["timestamp_ns"]), self._frame_for(sensor, spec))
                 if msg:
@@ -454,4 +677,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

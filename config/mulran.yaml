@@ -34,3 +34,22 @@ frame_ids:
   gps: gps
   imu: imu
 
+# Optional playback transform.
+# - pose_file: TUM format, one row per pose:
+#     timestamp tx ty tz qx qy qz qw
+#   timestamp may be seconds or nanoseconds.
+# - static_matrix_file: text file with 16 numbers for a 4x4 matrix.
+# - static_transform_order:
+#     after_pose:  T_publish = T_static * T_pose
+#     before_pose: T_publish = T_pose * T_static
+transform:
+  enabled: false
+  pose_file: ""
+  pose_format: tum
+  pose_timestamp_tolerance_ns: 50000000
+  static_matrix_file: ""
+  static_transform_order: after_pose
+  apply_to_pointcloud: true
+  output_frame_id: map
+  publish_pose: false
+  pose_topic: /dataloader/pose

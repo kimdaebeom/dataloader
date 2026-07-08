@@ -22,4 +22,6 @@ For HeLiPR `livox_avia`, source the Livox workspace first:
 source /home/beom/livox_ws/devel/setup.bash
 ```
 
+Playback can optionally transform LiDAR points using a TUM pose file and an extra 4x4 matrix. See `transform` in `config/mulran.yaml` or `config/helipr.yaml`.
+
 Dataset folder requirements are documented in `docs/dataset_layout.html`.

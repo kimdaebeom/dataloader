@@ -3,6 +3,7 @@ project(dataloader)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  geometry_msgs
   sensor_msgs
   rosgraph_msgs
 )
@@ -23,4 +24,3 @@ install(DIRECTORY
   launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
-
