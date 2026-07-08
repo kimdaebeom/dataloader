@@ -420,6 +420,7 @@
 
       <p><code>manifest.yaml</code>에는 dataset 이름, sequence 이름, 사용 가능한 sensor, 기본 topic, frame ID, primary LiDAR 정보가 저장됩니다. <code>timeline.csv</code>는 아래 형식으로 정규화됩니다.</p>
       <pre><code>timestamp_ns,sensor,relative_path</code></pre>
+      <p>원본 dataset에 GT pose가 있으면 converter가 TUM format으로 변환해서 <code>poses/</code> 아래에 저장하고, <code>manifest.yaml</code>의 <code>poses.gt</code>에 기록합니다.</p>
 
       <h3>Storage Mode</h3>
       <table>
@@ -527,6 +528,7 @@ p_publish = T_publish * p_lidar</code></pre>
       <h3>Config Example</h3>
       <pre><code>transform:
   enabled: true
+  pose_source: custom
   pose_file: /path/to/poses.tum
   pose_format: tum
   pose_timestamp_tolerance_ns: 50000000
@@ -536,6 +538,20 @@ p_publish = T_publish * p_lidar</code></pre>
   output_frame_id: map
   publish_pose: true
   pose_topic: /dataloader/pose</code></pre>
+
+      <h3>GT Pose 사용</h3>
+      <p>converted dataset에 GT pose가 기록되어 있으면 직접 파일 경로를 쓰지 않고 <code>pose_source: gt</code>로 선택할 수 있습니다.</p>
+      <pre><code>transform:
+  enabled: true
+  pose_source: gt
+  pose_file: ""
+  pose_format: tum
+  apply_to_pointcloud: true
+  output_frame_id: map
+  publish_pose: true</code></pre>
+
+      <p>MulRan은 <code>global_pose.csv</code>를 <code>poses/gt.tum</code>으로 변환합니다. HeLiPR은 <code>LiDAR_GT/Ouster_gt.txt</code>, <code>Velodyne_gt.txt</code>, <code>Avia_gt.txt</code>, <code>Aeva_gt.txt</code>를 LiDAR별 TUM pose로 저장하고, <code>global_*</code> GT도 <code>gt_global</code> pose로 함께 저장합니다.</p>
+      <p><code>pose_source: gt_global</code>을 사용하면 manifest에 기록된 global GT pose를 자동 선택합니다.</p>
 
       <div class="note">
         <code>transform.enabled: false</code>이면 기존처럼 raw LiDAR frame으로 publish합니다. SLAM을 직접 돌리는 경우에는 이 설정을 끄는 것이 일반적입니다.

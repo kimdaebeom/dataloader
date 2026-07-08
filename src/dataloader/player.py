@@ -25,6 +25,7 @@ except Exception:
     CustomPoint = None
 
 from dataloader.common import resolve_sequence_dir
+from dataloader.pose_utils import matrix_to_quat, quat_to_matrix, timestamp_to_ns
 
 
 AEVA_INTENSITY_THRESHOLD_NS = 1691936557946849179
@@ -75,68 +76,16 @@ def _load_csv_rows(path):
     return rows
 
 
-def _timestamp_to_ns(value):
-    timestamp = float(value)
-    if abs(timestamp) < 1.0e12:
-        return int(round(timestamp * 1.0e9))
-    return int(round(timestamp))
-
-
 def _field(name, offset, datatype):
     return PointField(name=name, offset=offset, datatype=POINT_FIELD_TYPES[datatype], count=1)
 
 
 def _quat_to_matrix(qx, qy, qz, qw):
-    quat = np.array([qx, qy, qz, qw], dtype=np.float64)
-    norm = np.linalg.norm(quat)
-    if norm == 0:
-        raise ValueError("zero quaternion in TUM pose")
-    qx, qy, qz, qw = quat / norm
-    xx, yy, zz = qx * qx, qy * qy, qz * qz
-    xy, xz, yz = qx * qy, qx * qz, qy * qz
-    wx, wy, wz = qw * qx, qw * qy, qw * qz
-    return np.array(
-        [
-            [1.0 - 2.0 * (yy + zz), 2.0 * (xy - wz), 2.0 * (xz + wy)],
-            [2.0 * (xy + wz), 1.0 - 2.0 * (xx + zz), 2.0 * (yz - wx)],
-            [2.0 * (xz - wy), 2.0 * (yz + wx), 1.0 - 2.0 * (xx + yy)],
-        ],
-        dtype=np.float64,
-    )
+    return quat_to_matrix(qx, qy, qz, qw)
 
 
 def _matrix_to_quat(matrix):
-    rotation = matrix[:3, :3]
-    trace = np.trace(rotation)
-    if trace > 0.0:
-        scale = np.sqrt(trace + 1.0) * 2.0
-        qw = 0.25 * scale
-        qx = (rotation[2, 1] - rotation[1, 2]) / scale
-        qy = (rotation[0, 2] - rotation[2, 0]) / scale
-        qz = (rotation[1, 0] - rotation[0, 1]) / scale
-    else:
-        axis = int(np.argmax(np.diag(rotation)))
-        if axis == 0:
-            scale = np.sqrt(1.0 + rotation[0, 0] - rotation[1, 1] - rotation[2, 2]) * 2.0
-            qw = (rotation[2, 1] - rotation[1, 2]) / scale
-            qx = 0.25 * scale
-            qy = (rotation[0, 1] + rotation[1, 0]) / scale
-            qz = (rotation[0, 2] + rotation[2, 0]) / scale
-        elif axis == 1:
-            scale = np.sqrt(1.0 + rotation[1, 1] - rotation[0, 0] - rotation[2, 2]) * 2.0
-            qw = (rotation[0, 2] - rotation[2, 0]) / scale
-            qx = (rotation[0, 1] + rotation[1, 0]) / scale
-            qy = 0.25 * scale
-            qz = (rotation[1, 2] + rotation[2, 1]) / scale
-        else:
-            scale = np.sqrt(1.0 + rotation[2, 2] - rotation[0, 0] - rotation[1, 1]) * 2.0
-            qw = (rotation[1, 0] - rotation[0, 1]) / scale
-            qx = (rotation[0, 2] + rotation[2, 0]) / scale
-            qy = (rotation[1, 2] + rotation[2, 1]) / scale
-            qz = 0.25 * scale
-    quat = np.array([qx, qy, qz, qw], dtype=np.float64)
-    quat /= np.linalg.norm(quat)
-    return quat
+    return matrix_to_quat(matrix)
 
 
 def _load_tum_poses(path):
@@ -149,7 +98,7 @@ def _load_tum_poses(path):
             parts = line.replace(",", " ").split()
             if len(parts) < 8:
                 continue
-            stamp_ns = _timestamp_to_ns(parts[0])
+            stamp_ns = timestamp_to_ns(parts[0])
             tx, ty, tz = (float(value) for value in parts[1:4])
             qx, qy, qz, qw = (float(value) for value in parts[4:8])
             transform = np.eye(4, dtype=np.float64)
@@ -466,9 +415,14 @@ class UnifiedDatasetPlayer:
             return
         matrix_file = self.transform_config.get("static_matrix_file", "")
         if matrix_file:
+            matrix_file = self._resolve_data_path(matrix_file)
             self.static_transform = _load_matrix_txt(matrix_file)
         pose_file = self.transform_config.get("pose_file", "")
+        pose_source = self.transform_config.get("pose_source", "custom")
+        if pose_source != "custom" and not pose_file:
+            pose_file = self._manifest_pose_file(pose_source)
         if pose_file:
+            pose_file = self._resolve_data_path(pose_file)
             pose_format = self.transform_config.get("pose_format", "tum")
             if pose_format != "tum":
                 raise RuntimeError("unsupported pose_format '{}'; only 'tum' is supported".format(pose_format))
@@ -478,6 +432,19 @@ class UnifiedDatasetPlayer:
             self.pose_stamps = [stamp for stamp, _ in poses]
             self.pose_mats = [mat for _, mat in poses]
             rospy.loginfo("loaded %d TUM poses from %s", len(poses), pose_file)
+
+    def _resolve_data_path(self, path):
+        path = Path(path).expanduser()
+        if path.is_absolute():
+            return path
+        return self.sequence_dir / path
+
+    def _manifest_pose_file(self, pose_source):
+        poses = self.manifest.get("poses", {}).get(pose_source, {})
+        pose_file = poses.get(self.primary_lidar) or poses.get("default")
+        if not pose_file:
+            raise RuntimeError("transform.pose_source is '{}', but no matching pose is recorded in manifest".format(pose_source))
+        return pose_file
 
     def _nearest_pose(self, timestamp_ns):
         if not self.pose_stamps:

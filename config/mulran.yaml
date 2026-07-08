@@ -44,6 +44,8 @@ frame_ids:
 #     before_pose: T_publish = T_pose * T_static
 transform:
   enabled: false
+  # custom: use pose_file below. gt/gt_global: use converted GT pose from manifest.
+  pose_source: custom
   pose_file: ""
   pose_format: tum
   pose_timestamp_tolerance_ns: 50000000
