@@ -68,6 +68,6 @@ transform:
   pose_source: gt_global
 ```
 
-기본 적용 순서는 `T_publish = T_static * T_pose`입니다. 자세한 옵션은 `config/mulran.yaml`, `config/helipr.yaml`, `docs/dataset_layout.html`을 참고하세요.
+기본 적용 순서는 `T_publish = T_static * T_pose`입니다. 자세한 옵션은 `config/mulran.yaml`, `config/helipr.yaml`, `docs/playback_config.html`을 참고하세요.
 
-dataset 폴더 구성과 자세한 옵션은 `docs/dataset_layout.html`에 정리되어 있습니다.
+dataset 폴더 구성과 convert 결과 구조는 `docs/index.html`, `docs/converted_format.html`에 정리되어 있습니다.

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dataloader Playback Config</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --ink:#1f2933; --muted:#5d6673; --line:#d9dee7; --accent:#0f766e; --accent-soft:#e3f4f1; --code-bg:#111827; --code-ink:#e5edf6; --warn-bg:#fff7e6; --warn-line:#f3c969; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.6; }
+    header { background:var(--panel); border-bottom:1px solid var(--line); }
+    .wrap { width:min(1080px, calc(100% - 40px)); margin:0 auto; }
+    .hero { padding:44px 0 28px; }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.15; letter-spacing:0; }
+    h2 { margin:0 0 14px; font-size:23px; letter-spacing:0; }
+    h3 { margin:20px 0 8px; font-size:17px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    .subtitle { max-width:820px; color:var(--muted); font-size:17px; }
+    nav { display:flex; flex-wrap:wrap; gap:8px; padding:16px 0; border-top:1px solid var(--line); }
+    nav a { display:inline-flex; align-items:center; min-height:34px; padding:6px 12px; border:1px solid var(--line); border-radius:6px; color:var(--ink); background:#fbfcfd; text-decoration:none; font-size:14px; }
+    main { padding:28px 0 56px; }
+    section { margin:0 0 22px; padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+    code { padding:2px 5px; border-radius:4px; background:#eef2f6; font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; font-size:.92em; }
+    pre { margin:12px 0 18px; padding:16px; overflow-x:auto; border-radius:8px; background:var(--code-bg); color:var(--code-ink); font-size:14px; line-height:1.45; }
+    pre code { padding:0; background:transparent; color:inherit; font-size:inherit; }
+    table { width:100%; margin:12px 0 18px; border-collapse:collapse; font-size:14px; }
+    th,td { padding:10px 12px; border:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:#f1f4f8; font-weight:650; }
+    .note { margin:14px 0; padding:14px 16px; border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; background:var(--accent-soft); }
+    .warning { border-color:var(--warn-line); border-left-color:#b7791f; background:var(--warn-bg); }
+    @media (max-width:760px) { .wrap { width:min(100% - 24px,1080px); } h1 { font-size:30px; } section { padding:18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <h1>Playback Config 설명</h1>
+      <p class="subtitle"><code>config/mulran.yaml</code>, <code>config/helipr.yaml</code>에서 자주 바꾸는 값과 optional override를 정리했습니다.</p>
+    </div>
+    <nav class="wrap" aria-label="문서 링크">
+      <a href="index.html">원본 dataset 배치</a>
+      <a href="converted_format.html">Convert 최종 구조</a>
+      <a href="playback_config.html">Playback Config</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>기본 실행</h2>
+      <pre><code>source /opt/ros/noetic/setup.zsh
+source /home/beom/dynamic_ws/devel/setup.zsh
+
+roslaunch dataloader player.launch \
+  config:=$(rospack find dataloader)/config/mulran.yaml</code></pre>
+      <p>HeLiPR에서 <code>livox_avia: true</code>를 켤 때는 Livox message가 필요합니다.</p>
+      <pre><code>source /home/beom/livox_ws/devel/setup.zsh</code></pre>
+      <div class="note">MulRan만 재생하거나 HeLiPR에서 <code>livox_avia: false</code>를 유지한다면 Livox workspace source는 필요하지 않습니다.</div>
+    </section>
+
+    <section>
+      <h2>최소 Config 구조</h2>
+      <p>config 파일에는 자주 바꾸는 값만 남겼습니다. topic 이름, frame id, transform 세부값은 player 기본값을 사용합니다.</p>
+      <pre><code>data_root: /data/converted_datasets
+dataset: helipr
+sequence: DCC01
+
+play_rate: 1.0
+loop: false
+
+primary_lidar: ouster
+start_lidar_frame: 0
+end_lidar_frame: -1
+
+publish:
+  inspva: true
+  imu: true
+  imu_mag: false
+  ouster: true
+  velodyne: false
+  livox_avia: false
+  aeva: false
+
+transform:
+  enabled: false</code></pre>
+      <table>
+        <thead>
+          <tr><th>Key</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>data_root</code></td><td><code>&lt;data_root&gt;/&lt;dataset&gt;/&lt;sequence&gt;/manifest.yaml</code>를 찾습니다.</td></tr>
+          <tr><td><code>play_rate</code></td><td><code>1.0</code>은 real-time, <code>2.0</code>은 2배속입니다.</td></tr>
+          <tr><td><code>loop</code></td><td><code>true</code>이면 선택 구간을 반복 재생합니다.</td></tr>
+          <tr><td><code>primary_lidar</code></td><td>frame index 구간을 정할 기준 LiDAR입니다.</td></tr>
+          <tr><td><code>start_lidar_frame</code>, <code>end_lidar_frame</code></td><td>0-based LiDAR frame index입니다. <code>end_lidar_frame: -1</code>은 마지막 frame까지 재생합니다.</td></tr>
+          <tr><td><code>publish</code></td><td>topic별 publish 여부입니다. 센서 선택은 string list가 아니라 true/false로 관리합니다.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Dataset별 Publish 항목</h2>
+      <table>
+        <thead>
+          <tr><th>Dataset</th><th>Publish key</th><th>기본 topic</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>MulRan</td><td><code>ouster</code></td><td><code>/os1_points</code></td></tr>
+          <tr><td>MulRan</td><td><code>radar</code></td><td><code>/radar/polar</code></td></tr>
+          <tr><td>MulRan</td><td><code>gps</code></td><td><code>/gps/fix</code></td></tr>
+          <tr><td>MulRan</td><td><code>imu</code>, <code>imu_mag</code></td><td><code>/imu/data_raw</code>, <code>/imu/mag</code></td></tr>
+          <tr><td>HeLiPR</td><td><code>inspva</code></td><td><code>/inspva</code></td></tr>
+          <tr><td>HeLiPR</td><td><code>imu</code>, <code>imu_mag</code></td><td><code>/imu/data_raw</code>, <code>/imu/mag</code></td></tr>
+          <tr><td>HeLiPR</td><td><code>ouster</code>, <code>velodyne</code>, <code>livox_avia</code>, <code>aeva</code></td><td><code>/ouster/points</code>, <code>/velodyne/points</code>, <code>/avia/points</code>, <code>/aeva/points</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note warning">HeLiPR <code>livox_avia</code> publish는 <code>livox_ros_driver/CustomMsg</code>를 사용하므로 Livox workspace를 source해야 합니다.</div>
+    </section>
+
+    <section>
+      <h2>Optional Override</h2>
+      <p>topic 또는 frame id를 바꾸고 싶을 때만 아래 block을 config에 추가합니다.</p>
+      <pre><code>topics:
+  ouster: /ouster/points
+  livox_avia: /avia/points
+
+frame_ids:
+  ouster: ouster
+  livox_avia: livox_avia</code></pre>
+      <p><code>/clock</code>은 기본 publish됩니다. 끄고 싶으면 기존 <code>publish</code> block 안에 추가합니다.</p>
+      <pre><code>publish:
+  clock: false
+  ouster: true</code></pre>
+    </section>
+
+    <section>
+      <h2>Pose Transform Playback</h2>
+      <p>SLAM을 새로 돌릴 때는 <code>transform.enabled: false</code>로 raw LiDAR frame을 그대로 쓰면 됩니다. 이미 구한 SLAM pose, GT pose, submap 정합 matrix를 playback에 반영할 때만 켭니다.</p>
+      <pre><code>transform:
+  enabled: true
+  pose_source: custom
+  pose_file: /path/to/poses.tum
+  static_matrix_file: /path/to/submap_transform.txt
+  output_frame_id: map
+  publish_pose: true</code></pre>
+      <p>converter가 저장한 GT pose를 쓰려면 직접 file path를 쓰지 않아도 됩니다.</p>
+      <pre><code>transform:
+  enabled: true
+  pose_source: gt
+  output_frame_id: map</code></pre>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>기본값</th><th>설명</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>pose_source</code></td><td><code>custom</code></td><td><code>custom</code>, <code>gt</code>, <code>gt_global</code> 중 선택합니다.</td></tr>
+          <tr><td><code>pose_file</code></td><td>empty</td><td><code>custom</code>일 때 읽을 TUM pose file입니다.</td></tr>
+          <tr><td><code>pose_timestamp_tolerance_ns</code></td><td><code>50000000</code></td><td>sensor timestamp와 pose timestamp의 최대 허용 차이입니다.</td></tr>
+          <tr><td><code>static_matrix_file</code></td><td>empty</td><td>submap 정합 등에 쓰는 4x4 matrix txt file입니다.</td></tr>
+          <tr><td><code>static_transform_order</code></td><td><code>after_pose</code></td><td><code>after_pose</code>: <code>T_static * T_pose</code>, <code>before_pose</code>: <code>T_pose * T_static</code></td></tr>
+          <tr><td><code>apply_to_pointcloud</code></td><td><code>true</code></td><td>LiDAR point의 <code>x,y,z</code>에 transform을 적용합니다.</td></tr>
+          <tr><td><code>publish_pose</code></td><td><code>false</code></td><td>계산된 pose를 <code>PoseStamped</code>로 함께 publish합니다.</td></tr>
+          <tr><td><code>pose_topic</code></td><td><code>/dataloader/pose</code></td><td><code>publish_pose: true</code>일 때 사용할 topic입니다.</td></tr>
+        </tbody>
+      </table>
+      <pre><code># TUM pose
+timestamp tx ty tz qx qy qz qw
+
+# 4x4 matrix txt
+r00 r01 r02 tx
+r10 r11 r12 ty
+r20 r21 r22 tz
+0   0   0   1</code></pre>
+    </section>
+  </main>
+</body>
+</html>

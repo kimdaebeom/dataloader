@@ -1,4 +1,4 @@
-# Converted dataset root. The player looks for:
+# Converted dataset root:
 #   ${data_root}/mulran/${sequence}/manifest.yaml
 data_root: /data/converted_datasets
 dataset: mulran
@@ -7,51 +7,23 @@ sequence: KAIST01
 play_rate: 1.0
 loop: false
 
-# 0-based lidar frame index range, using primary_lidar timestamps.
-# end_lidar_frame: -1 means play until the last lidar frame.
+# 0-based LiDAR frame index range, using primary_lidar timestamps.
+# end_lidar_frame: -1 means play until the last LiDAR frame.
 primary_lidar: ouster
 start_lidar_frame: 0
 end_lidar_frame: -1
 
+# Topic publish selection.
 publish:
-  clock: true
   ouster: true
   radar: true
   gps: true
   imu: true
   imu_mag: false
 
-topics:
-  ouster: /os1_points
-  radar: /radar/polar
-  gps: /gps/fix
-  imu: /imu/data_raw
-  imu_mag: /imu/mag
-
-frame_ids:
-  ouster: ouster
-  radar: radar_polar
-  gps: gps
-  imu: imu
-
-# Optional playback transform.
-# - pose_file: TUM format, one row per pose:
-#     timestamp tx ty tz qx qy qz qw
-#   timestamp may be seconds or nanoseconds.
-# - static_matrix_file: text file with 16 numbers for a 4x4 matrix.
-# - static_transform_order:
-#     after_pose:  T_publish = T_static * T_pose
-#     before_pose: T_publish = T_pose * T_static
+# Optional playback transform. Keep disabled for raw-frame SLAM playback.
 transform:
   enabled: false
-  # custom: use pose_file below. gt/gt_global: use converted GT pose from manifest.
-  pose_source: custom
-  pose_file: ""
-  pose_format: tum
-  pose_timestamp_tolerance_ns: 50000000
-  static_matrix_file: ""
-  static_transform_order: after_pose
-  apply_to_pointcloud: true
-  output_frame_id: map
-  publish_pose: false
-  pose_topic: /dataloader/pose
+
+# Optional topics, frame_ids, /clock, and pose transform details:
+#   docs/playback_config.html
