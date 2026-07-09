@@ -106,7 +106,7 @@ def _source_dir(source, spec):
     return source / raw_dirs[0]
 
 
-def _event_rel_path(definition, sensor, stamp, source_dir=None, link_mode="reference", source_filename=None):
+def _event_rel_path(definition, sensor, stamp, source_dir=None, link_mode="copy", source_filename=None):
     spec = definition["sensors"][sensor]
     filename = source_filename or "{}{}".format(stamp, spec["suffix"])
     if link_mode == "reference":
@@ -254,7 +254,7 @@ def convert_dataset(
     source,
     output_root,
     sequence=None,
-    link_mode="reference",
+    link_mode="copy",
     overwrite=False,
     start_lidar_frame=None,
     end_lidar_frame=None,
@@ -424,9 +424,9 @@ def build_arg_parser():
     parser.add_argument("--sequence", default=None, help="Sequence name. Defaults to source directory name.")
     parser.add_argument(
         "--link-mode",
-        default="reference",
+        default="copy",
         choices=["reference", "symlink", "hardlink", "hardlink_or_copy", "copy"],
-        help="How to place large sensor files. reference is the default and writes only manifest/timeline metadata.",
+        help="How to place large sensor files. copy is the default and creates a self-contained converted dataset.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing converted sequence.")
     parser.add_argument("--start-lidar-frame", type=int, default=None, help="Optional 0-based primary LiDAR start frame for partial conversion.")

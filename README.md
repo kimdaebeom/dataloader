@@ -8,7 +8,9 @@ MulRan, HeLiPR, SemanticKITTI, and future datasets를 같은 방식으로 변환
 rosrun dataloader dataloader_convert.py --dataset mulran --source /path/to/raw_sequence --output /path/to/converted_root --sequence KAIST01
 ```
 
-기본 storage mode는 `reference`입니다. 실제 sensor file을 복사하지 않고 `manifest.yaml`, `timeline.csv`, pose metadata만 저장하며, sensor file은 원본 absolute path를 참조합니다.
+기본 storage mode는 `copy`입니다. 실제 sensor file까지 converted folder 안으로 복사하므로, 변환이 끝난 뒤에는 원본 dataset 없이도 재생하거나 offline algorithm에서 읽을 수 있습니다.
+
+용량을 아끼는 local test가 필요할 때만 `--link-mode reference`를 명시하면 됩니다. 이 경우 sensor file은 복사하지 않고 원본 absolute path만 참조하므로 원본 dataset을 지우면 안 됩니다.
 
 원본 dataset에 GT pose가 있으면 converter가 TUM format으로 자동 저장합니다.
 
