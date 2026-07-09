@@ -65,9 +65,9 @@
           polar/
             &lt;timestamp_ns&gt;.png
       poses/
-        gt.tum
-        gt_ouster.tum
-        gt_global_ouster.tum</code></pre>
+        gt.txt
+        gt_ouster.txt
+        gt_global_ouster.txt</code></pre>
       <p>기본 <code>copy</code> mode에서는 sensor file까지 converted tree 안으로 복사합니다. 그래서 converted folder만 공유해도 player와 offline algorithm이 같은 <code>timeline.csv</code>, <code>manifest.yaml</code>, sensor file을 기준으로 읽을 수 있습니다.</p>
     </section>
 
@@ -91,12 +91,12 @@ sensors:
     frame_id: livox_avia
 poses:
   gt:
-    default: poses/gt_ouster.tum
-    ouster: poses/gt_ouster.tum
-    livox_avia: poses/gt_livox_avia.tum
+    default: poses/gt_ouster.txt
+    ouster: poses/gt_ouster.txt
+    livox_avia: poses/gt_livox_avia.txt
   gt_global:
-    default: poses/gt_global_ouster.tum
-    ouster: poses/gt_global_ouster.tum</code></pre>
+    default: poses/gt_global_ouster.txt
+    ouster: poses/gt_global_ouster.txt</code></pre>
     </section>
 
     <section>
@@ -116,10 +116,10 @@ poses:
           <tr><th>Dataset</th><th>원본</th><th>변환 결과</th></tr>
         </thead>
         <tbody>
-          <tr><td>MulRan</td><td><code>global_pose.csv</code></td><td><code>poses/gt.tum</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
-          <tr><td>HeLiPR</td><td><code>LiDAR_GT/Ouster_gt.txt</code> 등</td><td><code>poses/gt_ouster.tum</code> 등 LiDAR별 pose</td></tr>
-          <tr><td>HeLiPR global</td><td><code>LiDAR_GT/global_Ouster_gt.txt</code> 등</td><td><code>poses/gt_global_ouster.tum</code> 등 LiDAR별 global pose</td></tr>
-          <tr><td>SemanticKITTI</td><td><code>odom_tum.txt</code></td><td><code>poses/gt.tum</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
+          <tr><td>MulRan</td><td><code>global_pose.csv</code></td><td><code>poses/gt.txt</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
+          <tr><td>HeLiPR</td><td><code>LiDAR_GT/Ouster_gt.txt</code> 등</td><td><code>poses/gt_ouster.txt</code> 등 LiDAR별 pose</td></tr>
+          <tr><td>HeLiPR global</td><td><code>LiDAR_GT/global_Ouster_gt.txt</code> 등</td><td><code>poses/gt_global_ouster.txt</code> 등 LiDAR별 global pose</td></tr>
+          <tr><td>SemanticKITTI</td><td><code>odom_tum.txt</code></td><td><code>poses/gt.txt</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
         </tbody>
       </table>
       <pre><code>timestamp tx ty tz qx qy qz qw</code></pre>

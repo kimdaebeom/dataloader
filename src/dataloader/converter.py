@@ -198,7 +198,7 @@ def _convert_gt_poses(dataset, source, sequence_dir, present_sensors):
     if dataset == "mulran":
         global_pose = source / "global_pose.csv"
         if global_pose.is_file():
-            out = sequence_dir / "poses" / "gt.tum"
+            out = sequence_dir / "poses" / "gt.txt"
             if _write_tum_rows(_tum_rows_from_global_pose_csv(global_pose), out):
                 gt["default"] = str(out.relative_to(sequence_dir))
                 gt_global["default"] = str(out.relative_to(sequence_dir))
@@ -219,12 +219,12 @@ def _convert_gt_poses(dataset, source, sequence_dir, present_sensors):
             src = lidar_gt_dir / filename
             if not src.is_file():
                 continue
-            out = sequence_dir / "poses" / "gt_{}.tum".format(sensor)
+            out = sequence_dir / "poses" / "gt_{}.txt".format(sensor)
             if _write_tum_rows(_tum_rows_from_tum_file(src), out):
                 gt[sensor] = str(out.relative_to(sequence_dir))
             global_src = lidar_gt_dir / "global_{}".format(filename)
             if global_src.is_file():
-                global_out = sequence_dir / "poses" / "gt_global_{}.tum".format(sensor)
+                global_out = sequence_dir / "poses" / "gt_global_{}.txt".format(sensor)
                 if _write_tum_rows(_tum_rows_from_tum_file(global_src), global_out):
                     gt_global[sensor] = str(global_out.relative_to(sequence_dir))
         if "ouster" in gt:
@@ -234,7 +234,7 @@ def _convert_gt_poses(dataset, source, sequence_dir, present_sensors):
     elif dataset == "semantic_kitti":
         pose_path = source / "odom_tum.txt"
         if pose_path.is_file():
-            out = sequence_dir / "poses" / "gt.tum"
+            out = sequence_dir / "poses" / "gt.txt"
             if _write_tum_rows(_tum_rows_from_tum_file(pose_path), out):
                 gt["default"] = str(out.relative_to(sequence_dir))
                 gt_global["default"] = str(out.relative_to(sequence_dir))

@@ -157,7 +157,7 @@
           <tr><td><code>sensor_data/radar/polar/*.png</code></td><td>Navtech radar polar image입니다. local dataset의 <code>radara/polar</code> 폴더도 허용합니다.</td></tr>
           <tr><td><code>sensor_data/gps.csv</code></td><td><code>NavSatFix</code> publish에 사용하는 GPS row입니다.</td></tr>
           <tr><td><code>sensor_data/xsens_imu.csv</code></td><td><code>Imu</code>, optional <code>MagneticField</code> publish에 사용하는 Xsens row입니다.</td></tr>
-          <tr><td><code>global_pose.csv</code></td><td>있으면 converter가 <code>poses/gt.tum</code>으로 저장합니다.</td></tr>
+          <tr><td><code>global_pose.csv</code></td><td>있으면 converter가 <code>poses/gt.txt</code>로 저장합니다.</td></tr>
         </tbody>
       </table>
       <div class="note warning">
@@ -227,7 +227,7 @@
         </thead>
         <tbody>
           <tr><td><code>pcd/*.bin</code></td><td>KITTI LiDAR scan입니다. <code>float32 [x,y,z,intensity]</code> 형식으로 읽습니다.</td></tr>
-          <tr><td><code>odom_tum.txt</code></td><td>LiDAR timestamp와 pose가 들어있는 TUM pose file입니다. converter는 이 timestamp를 playback timeline으로 사용하고 <code>poses/gt.tum</code>으로 저장합니다.</td></tr>
+          <tr><td><code>odom_tum.txt</code></td><td>LiDAR timestamp와 pose가 들어있는 TUM pose file입니다. converter는 이 timestamp를 playback timeline으로 사용하고 <code>poses/gt.txt</code>로 저장합니다.</td></tr>
           <tr><td><code>manifest.json</code></td><td>원본 bag, topic, pcd 개수 등 참고 metadata입니다. converter는 필수로 의존하지 않습니다.</td></tr>
         </tbody>
       </table>

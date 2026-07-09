@@ -14,10 +14,10 @@ rosrun dataloader dataloader_convert.py --dataset mulran --source /path/to/raw_s
 
 원본 dataset에 GT pose가 있으면 converter가 TUM format으로 자동 저장합니다.
 
-- MulRan: `global_pose.csv` -> `poses/gt.tum`
-- HeLiPR: `LiDAR_GT/*_gt.txt` -> `poses/gt_<lidar>.tum`
-- HeLiPR global GT: `LiDAR_GT/global_*_gt.txt` -> `poses/gt_global_<lidar>.tum`
-- SemanticKITTI: `odom_tum.txt` -> `poses/gt.tum`
+- MulRan: `global_pose.csv` -> `poses/gt.txt`
+- HeLiPR: `LiDAR_GT/*_gt.txt` -> `poses/gt_<lidar>.txt`
+- HeLiPR global GT: `LiDAR_GT/global_*_gt.txt` -> `poses/gt_global_<lidar>.txt`
+- SemanticKITTI: `odom_tum.txt` -> `poses/gt.txt`
 
 SemanticKITTI 예시:
 
@@ -56,7 +56,7 @@ transform:
 transform:
   enabled: true
   pose_source: custom
-  pose_file: /path/to/poses.tum
+  pose_file: /path/to/poses.txt
   static_matrix_file: /path/to/submap_transform.txt
   output_frame_id: map
 ```
