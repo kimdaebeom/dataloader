@@ -1,0 +1,25 @@
+# Converted dataset root:
+#   ${data_root}/semantic_kitti/${sequence}/manifest.yaml
+data_root: /data/converted_datasets
+dataset: semantic_kitti
+sequence: "00"
+
+play_rate: 1.0
+loop: false
+
+# 0-based LiDAR frame index range.
+# end_lidar_frame: -1 means play until the last LiDAR frame.
+primary_lidar: velodyne
+start_lidar_frame: 0
+end_lidar_frame: -1
+
+# Topic publish selection.
+publish:
+  velodyne: true
+
+# Optional playback transform. Keep disabled for raw-frame SLAM playback.
+transform:
+  enabled: false
+
+# Optional topics, frame_ids, /clock, and pose transform details:
+#   docs/playback_config.html

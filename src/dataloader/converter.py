@@ -35,6 +35,37 @@ def _read_source_timeline(path, label_to_sensor):
     return rows
 
 
+def _read_semantic_kitti_timeline(source):
+    pose_path = source / "odom_tum.txt"
+    pcd_dir = source / "pcd"
+    if not pose_path.is_file():
+        raise FileNotFoundError("semantic_kitti pose file not found: {}".format(pose_path))
+    if not pcd_dir.is_dir():
+        raise FileNotFoundError("semantic_kitti pcd directory not found: {}".format(pcd_dir))
+
+    pose_rows = _tum_rows_from_tum_file(pose_path)
+    pcd_files = sorted(pcd_dir.glob("*.bin"))
+    if len(pose_rows) != len(pcd_files):
+        raise RuntimeError(
+            "semantic_kitti pose/pcd count mismatch: {} poses, {} pcd files".format(
+                len(pose_rows), len(pcd_files)
+            )
+        )
+
+    rows = []
+    for pose_row, pcd_file in zip(pose_rows, pcd_files):
+        rows.append(
+            {
+                "timestamp_ns": pose_row[0],
+                "sensor": "velodyne",
+                "source_label": "velodyne",
+                "source_filename": pcd_file.name,
+            }
+        )
+    rows.sort(key=lambda item: (item["timestamp_ns"], item["source_filename"]))
+    return rows
+
+
 def _ensure_parent(path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -75,31 +106,38 @@ def _source_dir(source, spec):
     return source / raw_dirs[0]
 
 
-def _event_rel_path(definition, sensor, stamp, source_dir=None, link_mode="reference"):
+def _event_rel_path(definition, sensor, stamp, source_dir=None, link_mode="reference", source_filename=None):
     spec = definition["sensors"][sensor]
+    filename = source_filename or "{}{}".format(stamp, spec["suffix"])
     if link_mode == "reference":
         if "out_file" in spec:
             return None
-        return str((source_dir / "{}{}".format(stamp, spec["suffix"])).resolve())
+        return str((source_dir / filename).resolve())
     if "out_file" in spec:
         return spec["out_file"]
-    return str(Path(spec["out_dir"]) / "{}{}".format(stamp, spec["suffix"]))
+    return str(Path(spec["out_dir"]) / filename)
 
 
 def _slice_by_lidar_frames(rows, primary_lidar, start_lidar_frame=None, end_lidar_frame=None):
     if start_lidar_frame is None and end_lidar_frame is None:
         return rows
-    lidar_stamps = [row["timestamp_ns"] for row in rows if row["sensor"] == primary_lidar]
-    if not lidar_stamps:
+    lidar_rows = [row for row in rows if row["sensor"] == primary_lidar]
+    if not lidar_rows:
         return []
     start_index = 0 if start_lidar_frame is None else max(0, start_lidar_frame)
-    end_index = len(lidar_stamps) - 1 if end_lidar_frame is None or end_lidar_frame < 0 else end_lidar_frame
-    end_index = min(end_index, len(lidar_stamps) - 1)
+    end_index = len(lidar_rows) - 1 if end_lidar_frame is None or end_lidar_frame < 0 else end_lidar_frame
+    end_index = min(end_index, len(lidar_rows) - 1)
     if start_index > end_index:
         return []
-    start_stamp = lidar_stamps[start_index]
-    end_stamp = lidar_stamps[end_index]
-    return [row for row in rows if start_stamp <= row["timestamp_ns"] <= end_stamp]
+    selected_lidar_ids = {id(row) for row in lidar_rows[start_index : end_index + 1]}
+    start_stamp = lidar_rows[start_index]["timestamp_ns"]
+    end_stamp = lidar_rows[end_index]["timestamp_ns"]
+    return [
+        row
+        for row in rows
+        if id(row) in selected_lidar_ids
+        or (row["sensor"] != primary_lidar and start_stamp <= row["timestamp_ns"] <= end_stamp)
+    ]
 
 
 def _write_tum_rows(rows, path):
@@ -193,6 +231,16 @@ def _convert_gt_poses(dataset, source, sequence_dir, present_sensors):
             gt["default"] = gt["ouster"]
         if "ouster" in gt_global:
             gt_global["default"] = gt_global["ouster"]
+    elif dataset == "semantic_kitti":
+        pose_path = source / "odom_tum.txt"
+        if pose_path.is_file():
+            out = sequence_dir / "poses" / "gt.tum"
+            if _write_tum_rows(_tum_rows_from_tum_file(pose_path), out):
+                gt["default"] = str(out.relative_to(sequence_dir))
+                gt_global["default"] = str(out.relative_to(sequence_dir))
+                if "velodyne" in present_sensors:
+                    gt["velodyne"] = str(out.relative_to(sequence_dir))
+                    gt_global["velodyne"] = str(out.relative_to(sequence_dir))
     poses = {}
     if gt:
         poses["gt"] = gt
@@ -217,9 +265,12 @@ def convert_dataset(
         sequence = source.name
     sequence_dir = Path(output_root).expanduser().resolve() / dataset / sequence
 
-    timeline_path = source / definition["timeline_file"]
-    if not timeline_path.is_file():
-        raise FileNotFoundError("source timeline not found: {}".format(timeline_path))
+    if dataset == "semantic_kitti":
+        timeline_path = None
+    else:
+        timeline_path = source / definition["timeline_file"]
+        if not timeline_path.is_file():
+            raise FileNotFoundError("source timeline not found: {}".format(timeline_path))
 
     if sequence_dir.exists():
         if not overwrite:
@@ -227,7 +278,10 @@ def convert_dataset(
         shutil.rmtree(sequence_dir)
     sequence_dir.mkdir(parents=True, exist_ok=True)
 
-    source_rows = _read_source_timeline(timeline_path, definition["label_to_sensor"])
+    if dataset == "semantic_kitti":
+        source_rows = _read_semantic_kitti_timeline(source)
+    else:
+        source_rows = _read_source_timeline(timeline_path, definition["label_to_sensor"])
     source_rows = _slice_by_lidar_frames(source_rows, definition["primary_lidar"], start_lidar_frame, end_lidar_frame)
     source_sensors = sorted({row["sensor"] for row in source_rows})
     source_dirs = {}
@@ -253,7 +307,8 @@ def convert_dataset(
         else:
             if sensor not in source_dirs:
                 continue
-            src = source_dirs[sensor] / "{}{}".format(row["timestamp_ns"], spec["suffix"])
+            filename = row.get("source_filename") or "{}{}".format(row["timestamp_ns"], spec["suffix"])
+            src = source_dirs[sensor] / filename
             if not src.is_file():
                 missing_files.append(str(src))
                 continue
@@ -264,6 +319,7 @@ def convert_dataset(
             row["timestamp_ns"],
             source_dir=source_dirs.get(sensor),
             link_mode=link_mode,
+            source_filename=row.get("source_filename"),
         )
         if row["relative_path"] is None:
             row["relative_path"] = str((source / spec["raw_file"]).resolve())
@@ -361,8 +417,8 @@ def convert_dataset(
 
 
 def build_arg_parser():
-    parser = argparse.ArgumentParser(description="Convert raw MulRan/HeLiPR data to the dataloader layout.")
-    parser.add_argument("--dataset", required=True, choices=sorted(["mulran", "helipr"]))
+    parser = argparse.ArgumentParser(description="Convert raw datasets to the dataloader layout.")
+    parser.add_argument("--dataset", required=True, choices=sorted(["mulran", "helipr", "semantic_kitti"]))
     parser.add_argument("--source", required=True, help="Raw sequence directory.")
     parser.add_argument("--output", required=True, help="Converted dataset root.")
     parser.add_argument("--sequence", default=None, help="Sequence name. Defaults to source directory name.")

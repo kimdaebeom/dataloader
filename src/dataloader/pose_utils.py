@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from decimal import Decimal, ROUND_HALF_UP
+
 import numpy as np
 
 
@@ -7,10 +9,10 @@ def timestamp_to_ns(value):
     text = str(value).strip()
     if text and all(char not in text.lower() for char in [".", "e"]):
         return int(text)
-    timestamp = float(value)
-    if abs(timestamp) < 1.0e12:
-        return int(round(timestamp * 1.0e9))
-    return int(round(timestamp))
+    timestamp = Decimal(text)
+    if abs(timestamp) < Decimal("1e12"):
+        return int((timestamp * Decimal("1e9")).to_integral_value(rounding=ROUND_HALF_UP))
+    return int(timestamp.to_integral_value(rounding=ROUND_HALF_UP))
 
 
 def quat_to_matrix(qx, qy, qz, qw):

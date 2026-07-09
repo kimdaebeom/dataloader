@@ -119,6 +119,7 @@ poses:
           <tr><td>MulRan</td><td><code>global_pose.csv</code></td><td><code>poses/gt.tum</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
           <tr><td>HeLiPR</td><td><code>LiDAR_GT/Ouster_gt.txt</code> 등</td><td><code>poses/gt_ouster.tum</code> 등 LiDAR별 pose</td></tr>
           <tr><td>HeLiPR global</td><td><code>LiDAR_GT/global_Ouster_gt.txt</code> 등</td><td><code>poses/gt_global_ouster.tum</code> 등 LiDAR별 global pose</td></tr>
+          <tr><td>SemanticKITTI</td><td><code>odom_tum.txt</code></td><td><code>poses/gt.tum</code>, <code>poses.gt</code>, <code>poses.gt_global</code></td></tr>
         </tbody>
       </table>
       <pre><code>timestamp tx ty tz qx qy qz qw</code></pre>
@@ -155,6 +156,11 @@ poses:
   --sequence KAIST05 \
   --start-lidar-frame 100 \
   --end-lidar-frame 200</code></pre>
+      <pre><code>rosrun dataloader dataloader_convert.py \
+  --dataset semantic_kitti \
+  --source /media/beom/T71/dataset/semantic_kitti/00 \
+  --output /media/beom/T71/dataset/converted \
+  --sequence 00</code></pre>
     </section>
   </main>
 </body>

@@ -121,6 +121,20 @@ DATASET_DEFINITIONS = {
             },
         },
     },
+    "semantic_kitti": {
+        "primary_lidar": "velodyne",
+        "sensors": {
+            "velodyne": {
+                "kind": "pointcloud",
+                "format": "semantic_kitti_velodyne",
+                "raw_dir": "pcd",
+                "out_dir": "sensors/lidar/velodyne",
+                "suffix": ".bin",
+                "topic": "/velodyne_points",
+                "frame_id": "velodyne",
+            },
+        },
+    },
 }
 
 

@@ -215,6 +215,21 @@ def _mulran_ouster(path, timestamp_ns, frame_id):
     return msg
 
 
+def _semantic_kitti_velodyne(path, timestamp_ns, frame_id):
+    return _cloud_from_raw(
+        path,
+        timestamp_ns,
+        frame_id,
+        [
+            _field("x", 0, "float32"),
+            _field("y", 4, "float32"),
+            _field("z", 8, "float32"),
+            _field("intensity", 12, "float32"),
+        ],
+        16,
+    )
+
+
 def _helipr_livox_avia(path, timestamp_ns, frame_id):
     if CustomMsg is None or CustomPoint is None:
         raise RuntimeError("livox_ros_driver is required to publish livox_avia")
@@ -240,6 +255,7 @@ def _helipr_livox_avia(path, timestamp_ns, frame_id):
 
 POINTCLOUD_READERS = {
     "mulran_ouster": _mulran_ouster,
+    "semantic_kitti_velodyne": _semantic_kitti_velodyne,
     "helipr_ouster": lambda path, stamp, frame: _cloud_from_raw(
         path,
         stamp,
@@ -345,21 +361,26 @@ class UnifiedDatasetPlayer:
         return bool(self.publish_flags.get(sensor, False))
 
     def _prepare_range(self):
-        lidar_stamps = [event["timestamp_ns"] for event in self.events if event["sensor"] == self.primary_lidar]
-        if not lidar_stamps:
+        lidar_events = [event for event in self.events if event["sensor"] == self.primary_lidar]
+        if not lidar_events:
             raise RuntimeError("primary lidar '{}' has no frames".format(self.primary_lidar))
         start_index = max(0, self.start_lidar_frame)
-        end_index = self.end_lidar_frame if self.end_lidar_frame >= 0 else len(lidar_stamps) - 1
-        end_index = min(end_index, len(lidar_stamps) - 1)
+        end_index = self.end_lidar_frame if self.end_lidar_frame >= 0 else len(lidar_events) - 1
+        end_index = min(end_index, len(lidar_events) - 1)
         if start_index > end_index:
             raise RuntimeError("invalid lidar frame range: {} > {}".format(start_index, end_index))
-        self.start_stamp = lidar_stamps[start_index]
-        self.end_stamp = lidar_stamps[end_index]
+        selected_lidar_ids = {id(event) for event in lidar_events[start_index : end_index + 1]}
+        self.start_stamp = lidar_events[start_index]["timestamp_ns"]
+        self.end_stamp = lidar_events[end_index]["timestamp_ns"]
         enabled = {name for name in self.manifest.get("sensors", {}) if self._sensor_enabled(name)}
         self.play_events = [
             event
             for event in self.events
-            if self.start_stamp <= event["timestamp_ns"] <= self.end_stamp and event["sensor"] in enabled
+            if event["sensor"] in enabled
+            and (
+                id(event) in selected_lidar_ids
+                or (event["sensor"] != self.primary_lidar and self.start_stamp <= event["timestamp_ns"] <= self.end_stamp)
+            )
         ]
         rospy.loginfo(
             "dataloader playback: %s [%d:%d] -> %d events",

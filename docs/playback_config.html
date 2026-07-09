@@ -35,7 +35,7 @@
   <header>
     <div class="wrap hero">
       <h1>Playback Config 설명</h1>
-      <p class="subtitle"><code>config/mulran.yaml</code>, <code>config/helipr.yaml</code>에서 자주 바꾸는 값과 optional override를 정리했습니다.</p>
+      <p class="subtitle"><code>config/mulran.yaml</code>, <code>config/helipr.yaml</code>, <code>config/semantic_kitti.yaml</code>에서 자주 바꾸는 값과 optional override를 정리했습니다.</p>
     </div>
     <nav class="wrap" aria-label="문서 링크">
       <a href="index.html">원본 dataset 배치</a>
@@ -111,6 +111,7 @@ transform:
           <tr><td>HeLiPR</td><td><code>inspva</code></td><td><code>/inspva</code></td></tr>
           <tr><td>HeLiPR</td><td><code>imu</code>, <code>imu_mag</code></td><td><code>/imu/data_raw</code>, <code>/imu/mag</code></td></tr>
           <tr><td>HeLiPR</td><td><code>ouster</code>, <code>velodyne</code>, <code>livox_avia</code>, <code>aeva</code></td><td><code>/ouster/points</code>, <code>/velodyne/points</code>, <code>/avia/points</code>, <code>/aeva/points</code></td></tr>
+          <tr><td>SemanticKITTI</td><td><code>velodyne</code></td><td><code>/velodyne_points</code></td></tr>
         </tbody>
       </table>
       <div class="note warning">HeLiPR <code>livox_avia</code> publish는 <code>livox_ros_driver/CustomMsg</code>를 사용하므로 Livox workspace를 source해야 합니다.</div>

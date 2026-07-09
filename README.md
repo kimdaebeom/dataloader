@@ -1,6 +1,6 @@
 # dataloader
 
-MulRan, HeLiPR, and future datasets를 같은 방식으로 변환하고 ROS topic으로 재생하기 위한 패키지입니다.
+MulRan, HeLiPR, SemanticKITTI, and future datasets를 같은 방식으로 변환하고 ROS topic으로 재생하기 위한 패키지입니다.
 
 ## Convert
 
@@ -15,12 +15,21 @@ rosrun dataloader dataloader_convert.py --dataset mulran --source /path/to/raw_s
 - MulRan: `global_pose.csv` -> `poses/gt.tum`
 - HeLiPR: `LiDAR_GT/*_gt.txt` -> `poses/gt_<lidar>.tum`
 - HeLiPR global GT: `LiDAR_GT/global_*_gt.txt` -> `poses/gt_global_<lidar>.tum`
+- SemanticKITTI: `odom_tum.txt` -> `poses/gt.tum`
+
+SemanticKITTI 예시:
+
+```bash
+rosrun dataloader dataloader_convert.py --dataset semantic_kitti --source /media/beom/T71/dataset/semantic_kitti/00 --output /path/to/converted_root --sequence 00
+```
 
 ## Play
 
 ```bash
 roslaunch dataloader player.launch config:=$(rospack find dataloader)/config/mulran.yaml
 ```
+
+SemanticKITTI는 `config/semantic_kitti.yaml`을 사용합니다.
 
 HeLiPR에서 `livox_avia`를 재생하려면 먼저 Livox workspace를 source해야 합니다.
 
