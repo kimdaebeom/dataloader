@@ -1,11 +1,13 @@
 # Converted dataset root:
 #   ${data_root}/mulran/${sequence}/manifest.yaml
-data_root: /data/converted_datasets
+data_root: /media/beom/ux_dataset1/converted_dataset
 dataset: mulran
 sequence: KAIST01
 
 play_rate: 1.0
 loop: false
+keyboard_control: true
+start_paused: true
 
 # 0-based LiDAR frame index range, using primary_lidar timestamps.
 # end_lidar_frame: -1 means play until the last LiDAR frame.
@@ -16,8 +18,8 @@ end_lidar_frame: -1
 # Topic publish selection.
 publish:
   ouster: true
-  radar: true
-  gps: true
+  radar: false
+  gps: false
   imu: true
   imu_mag: false
 

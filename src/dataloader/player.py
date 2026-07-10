@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
 
 import csv
+import atexit
+import os
+import re
+import shutil
+import select
 import struct
+import sys
+import termios
+import time
+import tty
 from bisect import bisect_left
+from bisect import bisect_right
+from collections import Counter
 from pathlib import Path
 
 import cv2
@@ -342,6 +353,19 @@ class UnifiedDatasetPlayer:
         self.frame_overrides = rospy.get_param("~frame_ids", {})
         self.transform_config = rospy.get_param("~transform", {})
         self.transform_enabled = bool(self.transform_config.get("enabled", False))
+        self.progress_log_interval_sec = float(rospy.get_param("~progress_log_interval_sec", 2.0))
+        self.progress_log_percent_step = float(rospy.get_param("~progress_log_percent_step", 5.0))
+        self.terminal_color = bool(rospy.get_param("~terminal_color", True))
+        self.terminal_direct_tty = bool(rospy.get_param("~terminal_direct_tty", True))
+        self.progress_bar_width = int(rospy.get_param("~progress_bar_width", 28))
+        self.term = self._open_terminal()
+        self.keyboard_control = bool(rospy.get_param("~keyboard_control", True))
+        self.start_paused = bool(rospy.get_param("~start_paused", True))
+        self.paused = self.start_paused
+        self.keyboard_fd = None
+        self.keyboard_close_fd = False
+        self.keyboard_attr = None
+        self._open_keyboard()
         self.pose_stamps = []
         self.pose_mats = []
         self.static_transform = np.eye(4, dtype=np.float64)
@@ -350,10 +374,20 @@ class UnifiedDatasetPlayer:
         self.csv_cache = {}
         self.publishers = {}
         self.clock_pub = None
+        self.play_event_counts = {}
+        self.published_counts = Counter()
+        self.selected_lidar_stamps = []
+        self.total_lidar_frames = 0
+        self.range_start_index = 0
+        self.range_end_index = 0
+        self.last_progress_log_time = 0.0
+        self.last_progress_percent = -1.0
+        self.play_start_wall_time = 0.0
         self._prepare_transform()
         self._prepare_range()
         self._prepare_publishers()
         self._prepare_csv_cache()
+        self._log_startup_summary()
 
     def _sensor_enabled(self, sensor):
         if sensor not in self.manifest.get("sensors", {}):
@@ -364,12 +398,17 @@ class UnifiedDatasetPlayer:
         lidar_events = [event for event in self.events if event["sensor"] == self.primary_lidar]
         if not lidar_events:
             raise RuntimeError("primary lidar '{}' has no frames".format(self.primary_lidar))
+        self.total_lidar_frames = len(lidar_events)
         start_index = max(0, self.start_lidar_frame)
         end_index = self.end_lidar_frame if self.end_lidar_frame >= 0 else len(lidar_events) - 1
         end_index = min(end_index, len(lidar_events) - 1)
         if start_index > end_index:
             raise RuntimeError("invalid lidar frame range: {} > {}".format(start_index, end_index))
-        selected_lidar_ids = {id(event) for event in lidar_events[start_index : end_index + 1]}
+        self.range_start_index = start_index
+        self.range_end_index = end_index
+        selected_lidar_events = lidar_events[start_index : end_index + 1]
+        selected_lidar_ids = {id(event) for event in selected_lidar_events}
+        self.selected_lidar_stamps = [event["timestamp_ns"] for event in selected_lidar_events]
         self.start_stamp = lidar_events[start_index]["timestamp_ns"]
         self.end_stamp = lidar_events[end_index]["timestamp_ns"]
         enabled = {name for name in self.manifest.get("sensors", {}) if self._sensor_enabled(name)}
@@ -382,13 +421,158 @@ class UnifiedDatasetPlayer:
                 or (event["sensor"] != self.primary_lidar and self.start_stamp <= event["timestamp_ns"] <= self.end_stamp)
             )
         ]
-        rospy.loginfo(
-            "dataloader playback: %s [%d:%d] -> %d events",
-            self.sequence_dir,
-            start_index,
-            end_index,
-            len(self.play_events),
+        self.play_event_counts = dict(Counter(event["sensor"] for event in self.play_events))
+
+    def _format_counts(self, counts):
+        if not counts:
+            return "none"
+        return ", ".join("{}={}".format(sensor, counts[sensor]) for sensor in sorted(counts))
+
+    def _format_publishers(self):
+        if not self.publishers:
+            return "none"
+        items = []
+        for sensor in sorted(self.publishers):
+            topic = getattr(self.publishers[sensor], "name", "")
+            items.append("{}:{}".format(sensor, topic))
+        return ", ".join(items)
+
+    def _format_rate(self):
+        text = "{:.3f}".format(self.play_rate).rstrip("0").rstrip(".")
+        return text or "0"
+
+    def _open_terminal(self):
+        if self.terminal_direct_tty:
+            try:
+                return open("/dev/tty", "w", buffering=1)
+            except OSError:
+                pass
+        return sys.stdout
+
+    def _open_keyboard(self):
+        if not self.keyboard_control:
+            self.paused = False
+            return
+        candidates = []
+        try:
+            if sys.stdin.isatty():
+                candidates.append((sys.stdin.fileno(), False))
+        except OSError:
+            pass
+        try:
+            candidates.append((os.open("/dev/tty", os.O_RDONLY), True))
+        except OSError:
+            pass
+        for fd, close_fd in candidates:
+            try:
+                self.keyboard_fd = fd
+                self.keyboard_close_fd = close_fd
+                self.keyboard_attr = termios.tcgetattr(self.keyboard_fd)
+                tty.setcbreak(self.keyboard_fd)
+                atexit.register(self._restore_keyboard)
+                return
+            except OSError:
+                if close_fd:
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+                self.keyboard_fd = None
+                self.keyboard_close_fd = False
+                self.keyboard_attr = None
+        if self.paused:
+            self.paused = False
+            rospy.logwarn("keyboard control unavailable; starting playback immediately")
+
+    def _restore_keyboard(self):
+        if self.keyboard_fd is None:
+            return
+        try:
+            if self.keyboard_attr is not None:
+                termios.tcsetattr(self.keyboard_fd, termios.TCSADRAIN, self.keyboard_attr)
+            if self.keyboard_close_fd:
+                os.close(self.keyboard_fd)
+        except OSError:
+            pass
+        self.keyboard_fd = None
+        self.keyboard_close_fd = False
+        self.keyboard_attr = None
+
+    def _terminal_width(self):
+        try:
+            return max(40, os.get_terminal_size(self.term.fileno()).columns)
+        except OSError:
+            pass
+        try:
+            return max(40, shutil.get_terminal_size(fallback=(100, 20)).columns)
+        except OSError:
+            return 100
+
+    def _strip_ansi(self, text):
+        return re.sub(r"\033\[[0-9;]*m", "", text)
+
+    def _fit_line(self, text):
+        width = self._terminal_width() - 1
+        if len(self._strip_ansi(text)) <= width:
+            return text
+        plain = self._strip_ansi(text)
+        if len(plain) <= width:
+            return plain
+        return plain[: max(0, width - 1)] + "…"
+
+    def _color(self, text, code):
+        if not self.terminal_color:
+            return text
+        return "\033[{}m{}\033[0m".format(code, text)
+
+    def _term_line(self, text=""):
+        self.term.write(self._fit_line(text) + "\n")
+        self.term.flush()
+
+    def _term_status(self, text):
+        self.term.write("\r\033[2K" + self._fit_line(text))
+        self.term.flush()
+
+    def _term_newline(self):
+        self.term.write("\n")
+        self.term.flush()
+
+    def _progress_bar(self, percent):
+        width = max(8, min(60, self.progress_bar_width))
+        filled = int(round(width * max(0.0, min(100.0, percent)) / 100.0))
+        return "{}{}".format("#" * filled, "-" * (width - filled))
+
+    def _log_startup_summary(self):
+        sensors = sorted(self.manifest.get("sensors", {}))
+        enabled = sorted(sensor for sensor in sensors if self._sensor_enabled(sensor))
+        duration_sec = max(0.0, (self.end_stamp - self.start_stamp) * 1e-9)
+        title = self._color("dataloader playback", "1;36")
+        dataset = "{}/{}".format(self.manifest.get("dataset", ""), self.manifest.get("sequence", ""))
+        transform = "on" if self.transform_enabled else "off"
+        clock = "on" if self.clock_pub is not None else "off"
+        self._term_line("")
+        self._term_line("{} | {} | {} | rate {}x | loop {}".format(title, dataset, self.manifest.get("storage_mode", ""), self._format_rate(), self.loop))
+        self._term_line(
+            "{} events | lidar {}:{}-{} ({}/{}) | {:.1f}s | clock {} | tf {}".format(
+                self._color(str(len(self.play_events)), "1;32"),
+                self.primary_lidar,
+                self.range_start_index,
+                self.range_end_index,
+                len(self.selected_lidar_stamps),
+                self.total_lidar_frames,
+                duration_sec,
+                clock,
+                transform,
+            )
         )
+        self._term_line("sensors: {} | topics: {}".format(", ".join(enabled) if enabled else "none", self._format_publishers()))
+        if self.keyboard_fd is not None:
+            state = "paused" if self.paused else "playing"
+            self._term_line("control: space=pause/resume, q=quit | start={}".format(state))
+        if self.transform_enabled:
+            pose_source = self.transform_config.get("pose_source", "custom")
+            pose_topic = getattr(self.pose_pub, "name", "off") if self.pose_pub is not None else "off"
+            self._term_line("transform: pose_source={} poses={} pose_topic={}".format(pose_source, len(self.pose_stamps), pose_topic))
 
     def _topic_for(self, sensor, spec):
         return self.topic_overrides.get(sensor, spec.get("topic", "/" + sensor))
@@ -509,20 +693,125 @@ class UnifiedDatasetPlayer:
         if not self.play_events:
             rospy.logwarn("no events selected for playback")
             return
-        while not rospy.is_shutdown():
-            previous_stamp = None
-            for event in self.play_events:
-                if rospy.is_shutdown():
+        try:
+            self.play_start_wall_time = time.monotonic()
+            while not rospy.is_shutdown():
+                self.play_start_wall_time = time.monotonic()
+                self.last_progress_log_time = 0.0
+                self.last_progress_percent = -1.0
+                previous_stamp = None
+                for index, event in enumerate(self.play_events, start=1):
+                    if rospy.is_shutdown():
+                        return
+                    self._wait_if_paused(index, event)
+                    if rospy.is_shutdown():
+                        return
+                    if previous_stamp is not None:
+                        delay = (event["timestamp_ns"] - previous_stamp) * 1e-9 / max(self.play_rate, 1e-9)
+                        if delay > 0:
+                            self._controlled_sleep(delay, index, event)
+                    self._wait_if_paused(index, event)
+                    if rospy.is_shutdown():
+                        return
+                    self._publish_clock(event["timestamp_ns"])
+                    self._publish_event(event)
+                    self._maybe_log_progress(index, event)
+                    previous_stamp = event["timestamp_ns"]
+                self._maybe_log_progress(len(self.play_events), self.play_events[-1], force=True)
+                self._term_newline()
+                self._term_line("{} published {}".format(self._color("playback completed:", "1;32"), self._format_counts(self.published_counts)))
+                if not self.loop:
                     return
-                if previous_stamp is not None:
-                    delay = (event["timestamp_ns"] - previous_stamp) * 1e-9 / max(self.play_rate, 1e-9)
-                    if delay > 0:
-                        rospy.sleep(delay)
-                self._publish_clock(event["timestamp_ns"])
-                self._publish_event(event)
-                previous_stamp = event["timestamp_ns"]
-            if not self.loop:
+                self._term_line(self._color("loop enabled: restarting playback", "1;33"))
+                self.published_counts.clear()
+        finally:
+            self._restore_keyboard()
+
+    def _poll_keyboard(self):
+        if self.keyboard_fd is None:
+            return
+        try:
+            while select.select([self.keyboard_fd], [], [], 0.0)[0]:
+                char = os.read(self.keyboard_fd, 1)
+                if char == b" ":
+                    self.paused = not self.paused
+                    return
+                if char in (b"q", b"Q"):
+                    rospy.signal_shutdown("keyboard quit")
+                    return
+        except OSError:
+            return
+
+    def _pause_status(self, event_index, event):
+        total_events = len(self.play_events)
+        event_percent = (event_index * 100.0) / total_events if total_events else 0.0
+        bar = self._color(self._progress_bar(event_percent), "1;33")
+        self._term_status(
+            "{} [{}] {:5.1f}% | ev {}/{} | press SPACE to play | q quit"
+            .format(self._color("paused", "1;33"), bar, event_percent, event_index, total_events)
+        )
+
+    def _wait_if_paused(self, event_index, event):
+        self._poll_keyboard()
+        pause_start = None
+        while self.paused and not rospy.is_shutdown():
+            if pause_start is None:
+                pause_start = time.monotonic()
+            self._pause_status(event_index, event)
+            rospy.sleep(0.05)
+            self._poll_keyboard()
+        if pause_start is None:
+            return 0.0
+        return time.monotonic() - pause_start
+
+    def _controlled_sleep(self, delay, event_index, event):
+        end_time = time.monotonic() + delay
+        while not rospy.is_shutdown():
+            self._poll_keyboard()
+            end_time += self._wait_if_paused(event_index, event)
+            remaining = end_time - time.monotonic()
+            if remaining <= 0:
                 return
+            rospy.sleep(min(0.05, remaining))
+
+    def _maybe_log_progress(self, event_index, event, force=False):
+        total_events = len(self.play_events)
+        if total_events <= 0:
+            return
+        event_percent = (event_index * 100.0) / total_events
+        if force and self.last_progress_percent >= event_percent:
+            return
+        now = time.monotonic()
+        lidar_index = bisect_right(self.selected_lidar_stamps, event["timestamp_ns"])
+        lidar_total = len(self.selected_lidar_stamps)
+        should_log = force
+        if not should_log and self.progress_log_interval_sec > 0:
+            should_log = now - self.last_progress_log_time >= self.progress_log_interval_sec
+        if not should_log and self.progress_log_percent_step > 0:
+            should_log = event_percent - self.last_progress_percent >= self.progress_log_percent_step
+        if not should_log:
+            return
+        self.last_progress_log_time = now
+        self.last_progress_percent = event_percent
+        rel_time = (event["timestamp_ns"] - self.start_stamp) * 1e-9
+        bar = self._color(self._progress_bar(event_percent), "1;32")
+        published_total = sum(self.published_counts.values())
+        status = (
+            "{} [{}] {:5.1f}% | ev {}/{} | lidar {}/{} | t+{:.2f}s | {} | pub {}"
+            .format(
+                self._color("play", "1;36"),
+                bar,
+                event_percent,
+                event_index,
+                total_events,
+                lidar_index,
+                lidar_total,
+                rel_time,
+                event["sensor"],
+                published_total,
+            )
+        )
+        self._term_status(status)
 
     def _publish_clock(self, timestamp_ns):
         if self.clock_pub is None:
@@ -548,8 +837,10 @@ class UnifiedDatasetPlayer:
                 elif self.transform_enabled:
                     rospy.logwarn_throttle(2.0, "no pose matched at %d; publishing raw %s", event["timestamp_ns"], sensor)
                 self.publishers[sensor].publish(msg)
+                self.published_counts[sensor] += 1
             elif spec["kind"] == "image":
                 self.publishers[sensor].publish(self._load_image(path, event["timestamp_ns"], self._frame_for(sensor, spec)))
+                self.published_counts[sensor] += 1
             elif spec["kind"] == "livox_custom":
                 transform = self._event_transform(event["timestamp_ns"])
                 msg = _helipr_livox_avia(path, event["timestamp_ns"], self._frame_for(sensor, spec))
@@ -561,20 +852,25 @@ class UnifiedDatasetPlayer:
                 elif self.transform_enabled:
                     rospy.logwarn_throttle(2.0, "no pose matched at %d; publishing raw %s", event["timestamp_ns"], sensor)
                 self.publishers[sensor].publish(msg)
+                self.published_counts[sensor] += 1
             elif spec["format"] == "mulran_gps":
                 msg = self._gps_msg(event["timestamp_ns"], self.csv_cache[sensor].get(event["timestamp_ns"]), self._frame_for(sensor, spec))
                 if msg:
                     self.publishers[sensor].publish(msg)
+                    self.published_counts[sensor] += 1
             elif spec["format"] == "xsens_imu":
                 imu_msg, mag_msg = self._imu_msg(event["timestamp_ns"], self.csv_cache[sensor].get(event["timestamp_ns"]), self._frame_for(sensor, spec))
                 if imu_msg:
                     self.publishers[sensor].publish(imu_msg)
+                    self.published_counts[sensor] += 1
                 if mag_msg and "imu_mag" in self.publishers:
                     self.publishers["imu_mag"].publish(mag_msg)
+                    self.published_counts["imu_mag"] += 1
             elif spec["format"] == "novatel_inspva":
                 msg = self._inspva_msg(event["timestamp_ns"], self.csv_cache[sensor].get(event["timestamp_ns"]), self._frame_for(sensor, spec))
                 if msg:
                     self.publishers[sensor].publish(msg)
+                    self.published_counts[sensor] += 1
         except Exception as exc:
             rospy.logwarn_throttle(2.0, "failed to publish %s at %d: %s", sensor, event["timestamp_ns"], exc)
 

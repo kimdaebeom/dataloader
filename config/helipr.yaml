@@ -6,6 +6,8 @@ sequence: DCC01
 
 play_rate: 1.0
 loop: false
+keyboard_control: true
+start_paused: true
 
 # 0-based LiDAR frame index range, using primary_lidar timestamps.
 # HeLiPR can use ouster, velodyne, livox_avia, or aeva as primary_lidar

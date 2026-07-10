@@ -6,17 +6,20 @@
   <title>dataloader 문서</title>
   <style>
     :root {
-      --bg: #f6f7f9;
+      --bg: #f5f7fb;
       --panel: #ffffff;
       --ink: #1f2933;
       --muted: #5d6673;
-      --line: #d9dee7;
+      --line: #dbe3ef;
       --accent: #0f766e;
-      --accent-soft: #e3f4f1;
-      --code-bg: #111827;
+      --accent-2: #7c3aed;
+      --accent-3: #2563eb;
+      --accent-soft: #e6f5f2;
+      --code-bg: #172033;
       --code-ink: #e5edf6;
       --warn-bg: #fff7e6;
       --warn-line: #f3c969;
+      --shadow: 0 12px 28px rgba(31, 41, 51, .07);
     }
     * { box-sizing: border-box; }
     body {
@@ -27,7 +30,7 @@
       line-height: 1.6;
     }
     header {
-      background: var(--panel);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
       border-bottom: 1px solid var(--line);
     }
     .wrap { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
@@ -55,7 +58,9 @@
       background: #fbfcfd;
       text-decoration: none;
       font-size: 14px;
+      transition: border-color .15s ease, transform .15s ease, background .15s ease;
     }
+    nav a:hover, .doc-link:hover { border-color: var(--accent); background: #f0faf8; transform: translateY(-1px); }
     main { padding: 28px 0 56px; }
     section {
       margin: 0 0 22px;
@@ -63,6 +68,7 @@
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
+      box-shadow: var(--shadow);
     }
     code {
       padding: 2px 5px;
@@ -95,12 +101,22 @@
     }
     .warning { border-color: var(--warn-line); border-left-color: #b7791f; background: var(--warn-bg); }
     .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eef8ff; border:1px solid #cfe9ff; color:#164e63; font-size:13px; font-weight:650; }
+    .badge:nth-child(2) { background:#f2f0ff; border-color:#ddd6fe; color:#4c1d95; }
+    .badge:nth-child(3) { background:#edfdf5; border-color:#bbf7d0; color:#14532d; }
+    .quick-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-top:16px; }
+    .quick-card { padding:14px; border:1px solid var(--line); border-radius:8px; background:#fbfdff; }
+    .quick-card strong { display:block; margin-bottom:4px; color:var(--accent); }
+    .quick-card span { color:var(--muted); font-size:14px; }
+    .pill { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; background:#edfdf5; color:#14532d; border:1px solid #bbf7d0; font-size:12px; font-weight:650; }
     ul { margin: 0 0 16px; padding-left: 24px; }
     li { margin: 4px 0; }
     @media (max-width: 760px) {
       .wrap { width: min(100% - 24px, 1080px); }
       h1 { font-size: 30px; }
       section { padding: 18px; }
+      .quick-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -109,6 +125,11 @@
     <div class="wrap hero">
       <h1>dataloader 문서</h1>
       <p class="subtitle">MulRan, HeLiPR, SemanticKITTI 원본 dataset 배치와 dataloader 변환 및 재생 흐름을 정리한 문서입니다.</p>
+      <div class="badges">
+        <span class="badge">copy-first convert</span>
+        <span class="badge">spacebar playback</span>
+        <span class="badge">TUM pose txt</span>
+      </div>
     </div>
     <nav class="wrap" aria-label="문서 링크">
       <a href="converted_format.html">Convert 최종 구조</a>
@@ -130,6 +151,31 @@
       </div>
       <div class="note">
         기본 converter mode는 <code>copy</code>입니다. sensor file까지 converted folder 안에 복사하므로, 변환이 끝난 뒤에는 원본 dataset 없이도 공유, 재생, offline 처리가 가능합니다.
+      </div>
+      <div class="quick-grid">
+        <div class="quick-card"><strong>1. Raw 확인</strong><span>dataset별 원본 폴더 구조를 맞춥니다.</span></div>
+        <div class="quick-card"><strong>2. Convert</strong><span>공통 format으로 복사 저장합니다.</span></div>
+        <div class="quick-card"><strong>3. Verify</strong><span>summary와 missing file을 확인합니다.</span></div>
+        <div class="quick-card"><strong>4. Play</strong><span><span class="pill">spacebar</span> 로 시작/정지합니다.</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>전체 사용 흐름</h2>
+      <p>이 패키지는 raw dataset을 직접 계속 읽기보다, 먼저 공통 format으로 변환한 뒤 그 결과물을 playback이나 offline algorithm에서 쓰는 흐름을 기준으로 합니다.</p>
+      <table>
+        <thead>
+          <tr><th>Step</th><th>해야 할 일</th><th>관련 문서</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>원본 sequence 폴더 구조 확인</td><td><code>docs/index.html</code></td></tr>
+          <tr><td>2</td><td><code>dataloader_convert.py</code> 또는 <code>convert_sequences.sh</code>로 변환</td><td><code>docs/converted_format.html</code></td></tr>
+          <tr><td>3</td><td><code>manifest.yaml</code>, <code>timeline.csv</code>, <code>missing_files.txt</code> 여부 확인</td><td><code>docs/converted_format.html</code></td></tr>
+          <tr><td>4</td><td>config에서 dataset, sequence, topic, frame range 선택 후 playback</td><td><code>docs/playback_config.html</code></td></tr>
+        </tbody>
+      </table>
+      <div class="note warning">
+        원본 삭제가 필요하면 <code>convert_sequences.sh --delete-source-after-success</code>를 사용합니다. 이 옵션은 변환 결과가 self-contained copy인지 검증한 뒤에만 raw sequence 폴더를 삭제합니다.
       </div>
     </section>
 
