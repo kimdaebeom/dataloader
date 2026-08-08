@@ -1,9 +1,5 @@
-include CMakeLists.txt
 include LICENSE
-include package.xml
-include pyproject.toml
-recursive-include config *.yaml
-recursive-include docs *.md
-recursive-include launch *.launch *.launch.py
-recursive-include scripts *.py *.sh
-recursive-include tests *.py
+include README.md
+exclude src/dataloader/player.py
+exclude src/dataloader/ros_compat.py
+prune tests

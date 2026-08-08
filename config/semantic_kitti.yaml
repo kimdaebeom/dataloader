@@ -1,6 +1,6 @@
 # Converted dataset root:
 #   ${data_root}/semantic_kitti/${sequence}/manifest.yaml
-data_root: /data/converted_datasets
+data_root: /data/converted
 dataset: semantic_kitti
 sequence: "00"
 

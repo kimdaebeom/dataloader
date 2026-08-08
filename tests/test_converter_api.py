@@ -1,12 +1,17 @@
 import csv
+import io
 import struct
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
 from dataloader import available_datasets, convert_dataset
+from dataloader.converter import main as converter_main
+from dataloader.converters import get_converter
 
 
 class ConverterApiTest(unittest.TestCase):
@@ -36,6 +41,7 @@ class ConverterApiTest(unittest.TestCase):
             )
 
             self.assertEqual(result["events"], 1)
+            self.assertTrue(result["ok"])
             self.assertEqual(result["primary_lidar_frames"], 1)
             self.assertEqual(result["sensors"], ["ouster"])
             self.assertTrue(result["manifest_path"].is_file())
@@ -77,6 +83,74 @@ class ConverterApiTest(unittest.TestCase):
                     sequence="sequence",
                     overwrite=True,
                 )
+
+    def test_empty_timeline_is_rejected_without_partial_output(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "raw" / "EMPTY"
+            (source / "sensor_data").mkdir(parents=True)
+            (source / "sensor_data" / "data_stamp.csv").write_text("")
+            with self.assertRaisesRegex(ValueError, "no supported events"):
+                convert_dataset("mulran", source, root / "converted")
+            self.assertFalse((root / "converted" / "mulran" / "EMPTY").exists())
+
+    def test_missing_primary_lidar_marks_conversion_incomplete(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "raw" / "MISSING"
+            (source / "sensor_data" / "Ouster").mkdir(parents=True)
+            stamp = 1_500_000_000_000_000_000
+            (source / "sensor_data" / "data_stamp.csv").write_text(
+                "{},ouster\n".format(stamp)
+            )
+            result = convert_dataset("mulran", source, root / "converted")
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["primary_lidar_frames"], 0)
+            self.assertEqual(len(result["missing_files"]), 1)
+
+            cli_output = io.StringIO()
+            with redirect_stdout(cli_output):
+                exit_code = converter_main(
+                    [
+                        "--dataset",
+                        "mulran",
+                        "--source",
+                        str(source),
+                        "--output",
+                        str(root / "cli-converted"),
+                    ]
+                )
+            self.assertEqual(exit_code, 2)
+            self.assertIn("status               : INCOMPLETE", cli_output.getvalue())
+
+    def test_failed_overwrite_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "raw" / "DCC01"
+            (source / "sensor_data" / "Ouster").mkdir(parents=True)
+            stamp = 1_500_000_000_000_000_000
+            (source / "sensor_data" / "Ouster" / "{}.bin".format(stamp)).write_bytes(
+                b"original"
+            )
+            (source / "sensor_data" / "data_stamp.csv").write_text(
+                "{},ouster\n".format(stamp)
+            )
+            converted = convert_dataset("mulran", source, root / "converted")
+            manifest_before = converted["manifest_path"].read_bytes()
+
+            adapter = get_converter("mulran")
+            with mock.patch.object(
+                adapter, "convert_poses", side_effect=RuntimeError("pose failure")
+            ):
+                with self.assertRaisesRegex(RuntimeError, "pose failure"):
+                    convert_dataset(
+                        "mulran", source, root / "converted", overwrite=True
+                    )
+
+            self.assertEqual(converted["manifest_path"].read_bytes(), manifest_before)
+            self.assertFalse(
+                any(converted["sequence_dir"].parent.glob(".DCC01.convert-*"))
+            )
 
     def test_semantic_kitti_adapter_converts_timeline_and_pose(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

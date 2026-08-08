@@ -1,18 +1,15 @@
-#!/usr/bin/env python3
-
-import csv
 import atexit
+import csv
 import os
 import re
-import shutil
 import select
+import shutil
 import struct
 import sys
 import termios
 import time
 import tty
-from bisect import bisect_left
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import Counter
 from pathlib import Path
 
@@ -21,7 +18,14 @@ import numpy as np
 import yaml
 from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock
-from sensor_msgs.msg import Image, Imu, MagneticField, NavSatFix, PointCloud2, PointField
+from sensor_msgs.msg import (
+    Image,
+    Imu,
+    MagneticField,
+    NavSatFix,
+    PointCloud2,
+    PointField,
+)
 
 try:
     from novatel_gps_msgs.msg import Inspva
@@ -42,7 +46,6 @@ from dataloader.lidar import AEVA_INTENSITY_THRESHOLD_NS, read_structured_points
 from dataloader.pose_utils import matrix_to_quat, quat_to_matrix, timestamp_to_ns
 from dataloader.ros_compat import ros as rospy
 from dataloader.ros_compat import stamp_from_ns
-
 
 POINT_FIELD_TYPES = {
     "float32": PointField.FLOAT32,

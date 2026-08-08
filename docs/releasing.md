@@ -10,6 +10,8 @@
 - Confirm that `autodataloader` is still available as the PyPI distribution name.
 - Confirm maintainer identity and contact details.
 - Review upstream dataset licenses, citation requirements, and trademark terms.
+- Confirm that the Python sdist excludes ROS modules, launch/config/scripts, and tests.
+- Confirm that the wheel exposes only the four ROS-independent CLI commands.
 
 The PyPI distribution name, Python import name, and ROS package name may differ. This project uses `autodataloader` for distribution and `dataloader` for both Python imports and ROS.
 
@@ -71,7 +73,7 @@ Create the `pypi` environment in the GitHub repository and require manual approv
 <br>
 
 1. Verify that the release commit passes the Python and ROS workflows.
-2. Tag the exact release commit, for example `v0.1.0`, and push the tag.
+2. Tag the exact release commit, for example `v0.1.1`, and push the tag.
 3. Approve the `pypi` environment deployment when prompted.
 4. If a tag run must be retried, run `Publish Python package` manually for the same commit.
 5. Verify the public install in a clean environment:

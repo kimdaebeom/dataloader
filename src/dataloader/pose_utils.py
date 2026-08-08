@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 
 import numpy as np
 

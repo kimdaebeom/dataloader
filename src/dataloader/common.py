@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-
 from pathlib import Path
-
 
 FORMAT_VERSION = 1
 

@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 AEVA_INTENSITY_THRESHOLD_NS = 1691936557946849179
 
 

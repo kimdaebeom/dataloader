@@ -78,6 +78,19 @@ def convert_many(
             **convert_options
         )
 
+    def record(sequence, converted):
+        result.results[sequence] = converted
+        if converted.get("ok", True):
+            result.successful.append(sequence)
+            return True
+        result.failed[sequence] = RuntimeError(
+            "conversion incomplete: {} missing files, {} primary LiDAR frames".format(
+                len(converted.get("missing_files", ())),
+                converted.get("primary_lidar_frames", 0),
+            )
+        )
+        return False
+
     if workers == 1:
         for index, sequence in enumerate(pending):
             try:
@@ -88,8 +101,9 @@ def convert_many(
                     result.skipped.extend(pending[index + 1 :])
                     break
             else:
-                result.successful.append(sequence)
-                result.results[sequence] = converted
+                if not record(sequence, converted) and not continue_on_error:
+                    result.skipped.extend(pending[index + 1 :])
+                    break
         return result
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -101,8 +115,7 @@ def convert_many(
             except Exception as exc:
                 result.failed[sequence] = exc
             else:
-                result.successful.append(sequence)
-                result.results[sequence] = converted
+                record(sequence, converted)
     result.successful.sort()
     result.failed = dict(sorted(result.failed.items()))
     return result

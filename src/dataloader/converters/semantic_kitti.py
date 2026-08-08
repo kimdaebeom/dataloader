@@ -35,7 +35,8 @@ class SemanticKittiConverter(BaseConverter):
                 "source_label": "velodyne",
                 "source_filename": pcd_file.name,
             }
-            for pose_row, pcd_file in zip(pose_rows, pcd_files)
+            # ``zip(strict=True)`` is unavailable on the supported Python 3.8.
+            for pose_row, pcd_file in zip(pose_rows, pcd_files)  # noqa: B905
         ]
         rows.sort(key=lambda item: (item["timestamp_ns"], item["source_filename"]))
         return rows

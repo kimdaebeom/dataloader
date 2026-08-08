@@ -34,13 +34,42 @@ jobs:
           PY
       - name: Test and build distributions
         run: |
-          python -m pip install --upgrade build .
+          python -m pip install --upgrade build twine check-wheel-contents .
           python -m unittest discover -s tests -v
           python -m build
+          python -m twine check dist/*
+          check-wheel-contents dist/*.whl
+          test ! -e "$(dirname "$(command -v dataloader-convert)")/dataloader-player"
+      - name: Verify core source distribution
+        run: |
+          python - <<'PY'
+          import tarfile
+          from pathlib import Path
+
+          archive = next(Path("dist").glob("*.tar.gz"))
+          forbidden = (
+              "CMakeLists.txt",
+              "package.xml",
+              "config/",
+              "docs/",
+              "launch/",
+              "scripts/",
+              "src/dataloader/player.py",
+              "src/dataloader/ros_compat.py",
+              "tests/",
+          )
+          with tarfile.open(archive) as handle:
+              members = ["/".join(Path(name).parts[1:]) for name in handle.getnames()]
+          included = [name for name in members if name in forbidden or name.startswith(forbidden)]
+          if included:
+              raise SystemExit("unexpected files in Python sdist: {}".format(included))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
+          if-no-files-found: error
+          retention-days: 7
 
   publish:
     name: Publish distribution to PyPI

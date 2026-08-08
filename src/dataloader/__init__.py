@@ -30,4 +30,4 @@ __all__ = [
     "register_converter",
     "validate_dataset",
 ]
-__version__ = "0.1.0"
+__version__ = "0.1.1"

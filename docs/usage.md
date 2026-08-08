@@ -46,6 +46,10 @@ dataloader-convert \
   --end-lidar-frame 200
 ```
 
+An overwrite is built in a temporary sibling directory and replaces the existing sequence only after conversion succeeds.
+
+A conversion with missing files or zero primary LiDAR frames is retained for inspection but reports `ok=False`; the CLI exits with status 2 and batch conversion records it as failed.
+
 The equivalent Python API is:
 
 ```python

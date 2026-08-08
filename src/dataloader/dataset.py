@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from .common import FORMAT_VERSION
 from .lidar import point_dtype, read_structured_points, standard_points
 from .pose_utils import quat_to_matrix, timestamp_to_ns
 
@@ -99,6 +100,13 @@ class Dataset:
             self.manifest = yaml.safe_load(handle) or {}
         if not isinstance(self.manifest, dict):
             raise ValueError("manifest.yaml must contain a mapping")
+        format_version = self.manifest.get("format_version")
+        if format_version != FORMAT_VERSION:
+            raise ValueError(
+                "unsupported format_version {}; expected {}".format(
+                    format_version, FORMAT_VERSION
+                )
+            )
         self.dataset = self.manifest.get("dataset", "")
         self.sequence = self.manifest.get("sequence", self.root.name)
         self.storage_mode = self.manifest.get("storage_mode", "")

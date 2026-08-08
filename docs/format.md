@@ -125,4 +125,6 @@ rosrun dataloader convert_sequences.sh \
 
 Deletion is allowed only for a newly converted `copy` result that passes validation, has no `missing_files.txt`, resolves every timeline entry inside the output sequence, and targets a child of the declared source root. Skipped outputs are never deleted.
 
+Source deletion cannot be combined with a partial LiDAR frame range or a non-`copy` storage mode.
+
 </details>

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>dataloader</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>Unified converter, Python reader, validator, and ROS player for autonomous driving datasets.</description>
 
   <maintainer email="kimdaebeom@users.noreply.github.com">Kim Daebeom</maintainer>

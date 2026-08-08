@@ -4,11 +4,10 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from helpers import make_mulran_sequence
 
 from dataloader import Dataset, convert_dataset
 from dataloader.lidar import read_structured_points, standard_points
-
-from helpers import make_mulran_sequence
 
 
 class DatasetApiTest(unittest.TestCase):

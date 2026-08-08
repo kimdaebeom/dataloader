@@ -1,4 +1,4 @@
-# Dataloader
+# AutoDataloader
 
 Convert autonomous-driving datasets into one timestamped layout, then use the same Python API and ROS player across datasets.
 

@@ -160,6 +160,12 @@ done
 [[ -n "$source_root" ]] || die "--source-root is required"
 [[ -n "$output_root" ]] || die "--output is required"
 [[ -d "$source_root" ]] || die "source root not found: $source_root"
+if [[ "$delete_source_after_success" -eq 1 ]]; then
+  [[ -z "$start_lidar_frame" && -z "$end_lidar_frame" ]] || \
+    die "--delete-source-after-success cannot be combined with a partial LiDAR frame range"
+  [[ -z "$link_mode" || "$link_mode" == "copy" ]] || \
+    die "--delete-source-after-success requires --link-mode copy"
+fi
 
 if command -v dataloader-convert >/dev/null 2>&1; then
   converter_command=(dataloader-convert)

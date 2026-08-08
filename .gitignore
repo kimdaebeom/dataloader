@@ -2,6 +2,10 @@ __pycache__/
 *.pyc
 *.egg-info/
 .eggs/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
 dist/
 .catkin_tools/
 .vscode/

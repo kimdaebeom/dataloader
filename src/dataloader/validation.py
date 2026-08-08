@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from .common import FORMAT_VERSION
 from .lidar import UnsupportedPointCloudFormat, point_step
 from .pose_utils import timestamp_to_ns
 
@@ -119,6 +120,14 @@ def validate_dataset(sequence_dir):
     for name in required:
         if name not in manifest:
             report.add("error", "manifest_key_missing", "missing manifest key: {}".format(name))
+    if manifest.get("format_version") != FORMAT_VERSION:
+        report.add(
+            "error",
+            "unsupported_format_version",
+            "format_version {} is not supported; expected {}".format(
+                manifest.get("format_version"), FORMAT_VERSION
+            ),
+        )
     sensors = manifest.get("sensors", {})
     if not isinstance(sensors, dict):
         report.add("error", "invalid_sensors", "manifest sensors must be a mapping")

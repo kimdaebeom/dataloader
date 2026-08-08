@@ -1,6 +1,6 @@
 # Converted dataset root:
 #   ${data_root}/helipr/${sequence}/manifest.yaml
-data_root: /data/converted_datasets
+data_root: /data/converted
 dataset: helipr
 sequence: DCC01
 
@@ -18,7 +18,7 @@ end_lidar_frame: -1
 
 # Topic publish selection.
 publish:
-  inspva: true
+  inspva: false
   imu: true
   imu_mag: false
   ouster: true

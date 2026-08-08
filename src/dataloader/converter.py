@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
-
 import argparse
 import csv
 import os
 import shutil
 import sys
+import tempfile
 import time
 from collections import Counter
 from datetime import datetime, timezone
@@ -14,7 +13,6 @@ import yaml
 
 from dataloader.common import FORMAT_VERSION, validate_path_component
 from dataloader.converters import available_converters, get_converter
-
 
 LINK_MODES = ("reference", "symlink", "hardlink", "hardlink_or_copy", "copy")
 
@@ -142,7 +140,7 @@ def _count_pose_files(poses):
     return len(files)
 
 
-def convert_dataset(
+def _convert_dataset_impl(
     dataset,
     source,
     output_root,
@@ -152,13 +150,9 @@ def convert_dataset(
     start_lidar_frame=None,
     end_lidar_frame=None,
     verbose=False,
+    display_sequence_dir=None,
 ):
-    """Convert one raw dataset sequence into the common dataloader layout.
-
-    Parameters are path-like and may be strings or :class:`pathlib.Path`
-    objects. The returned dictionary summarizes the generated files and
-    converted events. This function does not require ROS.
-    """
+    """Build one converted sequence at ``output_root``."""
     if link_mode not in LINK_MODES:
         raise ValueError(
             "unknown link_mode '{}'; expected one of: {}".format(
@@ -190,7 +184,7 @@ def convert_dataset(
     _log(verbose, "dataset      : {}".format(dataset))
     _log(verbose, "sequence     : {}".format(sequence))
     _log(verbose, "source       : {}".format(source))
-    _log(verbose, "output       : {}".format(sequence_dir))
+    _log(verbose, "output       : {}".format(display_sequence_dir or sequence_dir))
     _log(verbose, "storage mode : {}".format(link_mode))
     if start_lidar_frame is not None or end_lidar_frame is not None:
         _log(
@@ -216,7 +210,11 @@ def convert_dataset(
     _log(verbose, "[2/6] read source timeline")
     source_rows = adapter.read_timeline(source)
     raw_event_count = len(source_rows)
+    if raw_event_count == 0:
+        raise ValueError("source timeline contains no supported events")
     source_rows = _slice_by_lidar_frames(source_rows, definition["primary_lidar"], start_lidar_frame, end_lidar_frame)
+    if not source_rows:
+        raise ValueError("selected LiDAR frame range contains no events")
     _log(verbose, "      raw events      : {}".format(raw_event_count))
     _log(verbose, "      selected events : {}".format(len(source_rows)))
 
@@ -343,6 +341,7 @@ def convert_dataset(
 
     primary_lidar = definition["primary_lidar"]
     lidar_count = sum(1 for row in rows if row["sensor"] == primary_lidar)
+    complete = not missing_files and lidar_count > 0
     manifest = {
         "format_version": FORMAT_VERSION,
         "dataset": dataset,
@@ -368,6 +367,7 @@ def convert_dataset(
             handle.write("\n")
 
     return {
+        "ok": complete,
         "sequence_dir": sequence_dir,
         "timeline_path": timeline_out,
         "manifest_path": sequence_dir / "manifest.yaml",
@@ -385,6 +385,107 @@ def convert_dataset(
         "missing_by_sensor": dict(missing_by_sensor),
         "skipped_by_sensor": dict(skipped_by_sensor),
     }
+
+
+def convert_dataset(
+    dataset,
+    source,
+    output_root,
+    sequence=None,
+    link_mode="copy",
+    overwrite=False,
+    start_lidar_frame=None,
+    end_lidar_frame=None,
+    verbose=False,
+):
+    """Convert one raw sequence without exposing partial output.
+
+    Conversion is completed in a temporary sibling directory. The destination
+    is replaced only after conversion succeeds, so ``overwrite=True`` preserves
+    an existing converted sequence when parsing or file placement fails.
+    """
+    if link_mode not in LINK_MODES:
+        raise ValueError(
+            "unknown link_mode '{}'; expected one of: {}".format(
+                link_mode, ", ".join(LINK_MODES)
+            )
+        )
+    get_converter(dataset)
+    source = Path(source).expanduser().resolve()
+    if sequence is None:
+        sequence = source.name
+    sequence = validate_path_component(sequence, "sequence")
+    output_root = Path(output_root).expanduser().resolve()
+    sequence_dir = output_root / dataset / sequence
+    resolved_sequence_dir = sequence_dir.resolve()
+    if (
+        resolved_sequence_dir == source
+        or resolved_sequence_dir in source.parents
+        or source in resolved_sequence_dir.parents
+    ):
+        raise ValueError(
+            "source and output sequence directories must not overlap: {} / {}".format(
+                source, resolved_sequence_dir
+            )
+        )
+    if sequence_dir.is_symlink():
+        raise ValueError("output sequence directory must not be a symbolic link")
+    if sequence_dir.exists() and not sequence_dir.is_dir():
+        raise FileExistsError("output sequence path is not a directory: {}".format(sequence_dir))
+    if sequence_dir.exists() and not overwrite:
+        raise FileExistsError(
+            "{} already exists; pass --overwrite to replace it".format(sequence_dir)
+        )
+
+    sequence_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_root = Path(
+        tempfile.mkdtemp(prefix=".{}.convert-".format(sequence), dir=str(sequence_dir.parent))
+    )
+    backup_dir = staging_root / "previous"
+    try:
+        result = _convert_dataset_impl(
+            dataset=dataset,
+            source=source,
+            output_root=staging_root / "output",
+            sequence=sequence,
+            link_mode=link_mode,
+            overwrite=False,
+            start_lidar_frame=start_lidar_frame,
+            end_lidar_frame=end_lidar_frame,
+            verbose=verbose,
+            display_sequence_dir=sequence_dir,
+        )
+        staged_sequence = result["sequence_dir"]
+
+        if sequence_dir.is_symlink():
+            raise ValueError("output sequence directory became a symbolic link")
+        if sequence_dir.exists():
+            if not overwrite:
+                raise FileExistsError(
+                    "{} was created while conversion was running".format(sequence_dir)
+                )
+            if not sequence_dir.is_dir():
+                raise FileExistsError(
+                    "output sequence path is not a directory: {}".format(sequence_dir)
+                )
+            os.replace(str(sequence_dir), str(backup_dir))
+        try:
+            os.replace(str(staged_sequence), str(sequence_dir))
+        except Exception:
+            if backup_dir.exists() and not sequence_dir.exists():
+                os.replace(str(backup_dir), str(sequence_dir))
+            raise
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir, ignore_errors=True)
+    except Exception:
+        shutil.rmtree(staging_root, ignore_errors=True)
+        raise
+    shutil.rmtree(staging_root, ignore_errors=True)
+
+    result["sequence_dir"] = sequence_dir
+    result["timeline_path"] = sequence_dir / "timeline.csv"
+    result["manifest_path"] = sequence_dir / "manifest.yaml"
+    return result
 
 
 def build_arg_parser():
@@ -450,9 +551,8 @@ def main(argv=None):
             print("missing by sensor")
             for sensor in sorted(result["missing_by_sensor"]):
                 print("  - {:<12} {}".format(sensor, result["missing_by_sensor"][sensor]))
-        return 2
-    print("status               : OK")
-    return 0
+    print("status               : {}".format("OK" if result["ok"] else "INCOMPLETE"))
+    return 0 if result["ok"] else 2
 
 
 if __name__ == "__main__":

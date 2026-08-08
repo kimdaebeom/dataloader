@@ -20,6 +20,7 @@ class BaseConverter(ABC):
 
     def check_source(self, source):
         """Raise a useful error when required source metadata is missing."""
+        return None
 
     def convert_poses(self, source, sequence_dir, present_sensors):
         """Convert available poses and return the manifest pose mapping."""
