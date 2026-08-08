@@ -1,0 +1,28 @@
+name: ROS package
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ros1-noetic:
+    runs-on: ubuntu-latest
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-focal-latest
+    steps:
+      - uses: ros-tooling/action-ros-ci@v0.4
+        with:
+          package-name: dataloader
+          target-ros1-distro: noetic
+          skip-tests: true
+
+  ros2-jazzy:
+    runs-on: ubuntu-latest
+    container:
+      image: rostooling/setup-ros-docker:ubuntu-noble-latest
+    steps:
+      - uses: ros-tooling/action-ros-ci@v0.4
+        with:
+          package-name: dataloader
+          target-ros2-distro: jazzy
+          skip-tests: true

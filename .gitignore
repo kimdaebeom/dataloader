@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
+*.egg-info/
+.eggs/
+dist/
 .catkin_tools/
 .vscode/
 build/

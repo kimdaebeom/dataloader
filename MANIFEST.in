@@ -1,0 +1,9 @@
+include CMakeLists.txt
+include LICENSE
+include package.xml
+include pyproject.toml
+recursive-include config *.yaml
+recursive-include docs *.md
+recursive-include launch *.launch *.launch.py
+recursive-include scripts *.py *.sh
+recursive-include tests *.py

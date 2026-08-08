@@ -10,62 +10,13 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 import yaml
 
-from dataloader.common import FORMAT_VERSION, dataset_definition
-from dataloader.pose_utils import matrix_to_quat, timestamp_to_ns
+from dataloader.common import FORMAT_VERSION, validate_path_component
+from dataloader.converters import available_converters, get_converter
 
 
-def _read_source_timeline(path, label_to_sensor):
-    rows = []
-    with path.open("r", newline="") as handle:
-        reader = csv.reader(handle)
-        for raw in reader:
-            if len(raw) < 2:
-                continue
-            try:
-                stamp = int(raw[0])
-            except ValueError:
-                continue
-            label = raw[1].strip()
-            sensor = label_to_sensor.get(label)
-            if sensor is None:
-                continue
-            rows.append({"timestamp_ns": stamp, "sensor": sensor, "source_label": label})
-    rows.sort(key=lambda item: (item["timestamp_ns"], item["sensor"]))
-    return rows
-
-
-def _read_semantic_kitti_timeline(source):
-    pose_path = source / "odom_tum.txt"
-    pcd_dir = source / "pcd"
-    if not pose_path.is_file():
-        raise FileNotFoundError("semantic_kitti pose file not found: {}".format(pose_path))
-    if not pcd_dir.is_dir():
-        raise FileNotFoundError("semantic_kitti pcd directory not found: {}".format(pcd_dir))
-
-    pose_rows = _tum_rows_from_tum_file(pose_path)
-    pcd_files = sorted(pcd_dir.glob("*.bin"))
-    if len(pose_rows) != len(pcd_files):
-        raise RuntimeError(
-            "semantic_kitti pose/pcd count mismatch: {} poses, {} pcd files".format(
-                len(pose_rows), len(pcd_files)
-            )
-        )
-
-    rows = []
-    for pose_row, pcd_file in zip(pose_rows, pcd_files):
-        rows.append(
-            {
-                "timestamp_ns": pose_row[0],
-                "sensor": "velodyne",
-                "source_label": "velodyne",
-                "source_filename": pcd_file.name,
-            }
-        )
-    rows.sort(key=lambda item: (item["timestamp_ns"], item["source_filename"]))
-    return rows
+LINK_MODES = ("reference", "symlink", "hardlink", "hardlink_or_copy", "copy")
 
 
 def _ensure_parent(path):
@@ -183,121 +134,12 @@ def _slice_by_lidar_frames(rows, primary_lidar, start_lidar_frame=None, end_lida
     ]
 
 
-def _write_tum_rows(rows, path):
-    if not rows:
-        return False
-    _ensure_parent(path)
-    with path.open("w") as handle:
-        for stamp_ns, tx, ty, tz, qx, qy, qz, qw in rows:
-            handle.write(
-                "{} {:.12g} {:.12g} {:.12g} {:.12g} {:.12g} {:.12g} {:.12g}\n".format(
-                    int(stamp_ns), tx, ty, tz, qx, qy, qz, qw
-                )
-            )
-    return True
-
-
-def _tum_rows_from_tum_file(path):
-    rows = []
-    with path.open("r", errors="replace") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.replace(",", " ").split()
-            if len(parts) < 8:
-                continue
-            stamp_ns = timestamp_to_ns(parts[0])
-            values = [float(value) for value in parts[1:8]]
-            rows.append((stamp_ns, *values))
-    return rows
-
-
-def _tum_rows_from_global_pose_csv(path):
-    rows = []
-    with path.open("r", newline="", errors="replace") as handle:
-        reader = csv.reader(handle)
-        for raw in reader:
-            if len(raw) < 13:
-                continue
-            try:
-                stamp_ns = timestamp_to_ns(raw[0])
-                values = [float(value) for value in raw[1:13]]
-            except ValueError:
-                continue
-            transform = np.eye(4, dtype=np.float64)
-            transform[0, :4] = values[0:4]
-            transform[1, :4] = values[4:8]
-            transform[2, :4] = values[8:12]
-            qx, qy, qz, qw = matrix_to_quat(transform)
-            tx, ty, tz = transform[:3, 3]
-            rows.append((stamp_ns, tx, ty, tz, qx, qy, qz, qw))
-    return rows
-
-
 def _count_pose_files(poses):
     files = set()
     for group in poses.values():
         for value in group.values():
             files.add(value)
     return len(files)
-
-
-def _convert_gt_poses(dataset, source, sequence_dir, present_sensors):
-    gt = {}
-    gt_global = {}
-    if dataset == "mulran":
-        global_pose = source / "global_pose.csv"
-        if global_pose.is_file():
-            out = sequence_dir / "poses" / "gt.txt"
-            if _write_tum_rows(_tum_rows_from_global_pose_csv(global_pose), out):
-                gt["default"] = str(out.relative_to(sequence_dir))
-                gt_global["default"] = str(out.relative_to(sequence_dir))
-                if "ouster" in present_sensors:
-                    gt["ouster"] = str(out.relative_to(sequence_dir))
-                    gt_global["ouster"] = str(out.relative_to(sequence_dir))
-    elif dataset == "helipr":
-        lidar_gt_dir = source / "LiDAR_GT"
-        sensor_to_file = {
-            "ouster": "Ouster_gt.txt",
-            "velodyne": "Velodyne_gt.txt",
-            "livox_avia": "Avia_gt.txt",
-            "aeva": "Aeva_gt.txt",
-        }
-        for sensor, filename in sensor_to_file.items():
-            if sensor not in present_sensors:
-                continue
-            src = lidar_gt_dir / filename
-            if not src.is_file():
-                continue
-            out = sequence_dir / "poses" / "gt_{}.txt".format(sensor)
-            if _write_tum_rows(_tum_rows_from_tum_file(src), out):
-                gt[sensor] = str(out.relative_to(sequence_dir))
-            global_src = lidar_gt_dir / "global_{}".format(filename)
-            if global_src.is_file():
-                global_out = sequence_dir / "poses" / "gt_global_{}.txt".format(sensor)
-                if _write_tum_rows(_tum_rows_from_tum_file(global_src), global_out):
-                    gt_global[sensor] = str(global_out.relative_to(sequence_dir))
-        if "ouster" in gt:
-            gt["default"] = gt["ouster"]
-        if "ouster" in gt_global:
-            gt_global["default"] = gt_global["ouster"]
-    elif dataset == "semantic_kitti":
-        pose_path = source / "odom_tum.txt"
-        if pose_path.is_file():
-            out = sequence_dir / "poses" / "gt.txt"
-            if _write_tum_rows(_tum_rows_from_tum_file(pose_path), out):
-                gt["default"] = str(out.relative_to(sequence_dir))
-                gt_global["default"] = str(out.relative_to(sequence_dir))
-                if "velodyne" in present_sensors:
-                    gt["velodyne"] = str(out.relative_to(sequence_dir))
-                    gt_global["velodyne"] = str(out.relative_to(sequence_dir))
-    poses = {}
-    if gt:
-        poses["gt"] = gt
-    if gt_global:
-        poses["gt_global"] = gt_global
-    return poses
 
 
 def convert_dataset(
@@ -311,11 +153,36 @@ def convert_dataset(
     end_lidar_frame=None,
     verbose=False,
 ):
-    definition = dataset_definition(dataset)
+    """Convert one raw dataset sequence into the common dataloader layout.
+
+    Parameters are path-like and may be strings or :class:`pathlib.Path`
+    objects. The returned dictionary summarizes the generated files and
+    converted events. This function does not require ROS.
+    """
+    if link_mode not in LINK_MODES:
+        raise ValueError(
+            "unknown link_mode '{}'; expected one of: {}".format(
+                link_mode, ", ".join(LINK_MODES)
+            )
+        )
+    adapter = get_converter(dataset)
+    definition = adapter.definition
     source = Path(source).expanduser().resolve()
     if sequence is None:
         sequence = source.name
+    sequence = validate_path_component(sequence, "sequence")
     sequence_dir = Path(output_root).expanduser().resolve() / dataset / sequence
+    resolved_sequence_dir = sequence_dir.resolve()
+    if (
+        resolved_sequence_dir == source
+        or resolved_sequence_dir in source.parents
+        or source in resolved_sequence_dir.parents
+    ):
+        raise ValueError(
+            "source and output sequence directories must not overlap: {} / {}".format(
+                source, resolved_sequence_dir
+            )
+        )
 
     _log(verbose, "")
     _log(verbose, "========================================")
@@ -335,12 +202,7 @@ def convert_dataset(
         )
     _log(verbose, "========================================")
 
-    if dataset == "semantic_kitti":
-        timeline_path = None
-    else:
-        timeline_path = source / definition["timeline_file"]
-        if not timeline_path.is_file():
-            raise FileNotFoundError("source timeline not found: {}".format(timeline_path))
+    adapter.check_source(source)
 
     if sequence_dir.exists():
         if not overwrite:
@@ -352,10 +214,7 @@ def convert_dataset(
     sequence_dir.mkdir(parents=True, exist_ok=True)
 
     _log(verbose, "[2/6] read source timeline")
-    if dataset == "semantic_kitti":
-        source_rows = _read_semantic_kitti_timeline(source)
-    else:
-        source_rows = _read_source_timeline(timeline_path, definition["label_to_sensor"])
+    source_rows = adapter.read_timeline(source)
     raw_event_count = len(source_rows)
     source_rows = _slice_by_lidar_frames(source_rows, definition["primary_lidar"], start_lidar_frame, end_lidar_frame)
     _log(verbose, "      raw events      : {}".format(raw_event_count))
@@ -429,7 +288,7 @@ def convert_dataset(
 
     present_sensors = sorted({row["sensor"] for row in rows})
     _log(verbose, "[5/6] convert GT pose files")
-    poses = _convert_gt_poses(dataset, source, sequence_dir, present_sensors)
+    poses = adapter.convert_poses(source, sequence_dir, present_sensors)
     pose_file_count = _count_pose_files(poses)
     _log(verbose, "      pose files: {}".format(pose_file_count))
     for sensor in present_sensors:
@@ -530,14 +389,14 @@ def convert_dataset(
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(description="Convert raw datasets to the dataloader layout.")
-    parser.add_argument("--dataset", required=True, choices=sorted(["mulran", "helipr", "semantic_kitti"]))
+    parser.add_argument("--dataset", required=True, choices=available_converters())
     parser.add_argument("--source", required=True, help="Raw sequence directory.")
     parser.add_argument("--output", required=True, help="Converted dataset root.")
     parser.add_argument("--sequence", default=None, help="Sequence name. Defaults to source directory name.")
     parser.add_argument(
         "--link-mode",
         default="copy",
-        choices=["reference", "symlink", "hardlink", "hardlink_or_copy", "copy"],
+        choices=LINK_MODES,
         help="How to place large sensor files. copy is the default and creates a self-contained converted dataset.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Replace an existing converted sequence.")

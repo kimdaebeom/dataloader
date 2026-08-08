@@ -1,35 +1,35 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>dataloader</name>
   <version>0.1.0</version>
-  <description>Unified converter and ROS file player for multiple autonomous driving datasets.</description>
+  <description>Unified converter, Python reader, validator, and ROS player for autonomous driving datasets.</description>
 
-  <maintainer email="beom@todo.todo">beom</maintainer>
-  <license>TODO</license>
+  <maintainer email="kimdaebeom@users.noreply.github.com">Kim Daebeom</maintainer>
+  <license>MIT</license>
 
-  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_python</buildtool_depend>
 
-  <build_depend>rospy</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>rosgraph_msgs</build_depend>
-
-  <build_export_depend>rospy</build_export_depend>
-  <build_export_depend>geometry_msgs</build_export_depend>
-  <build_export_depend>sensor_msgs</build_export_depend>
-  <build_export_depend>rosgraph_msgs</build_export_depend>
-
-  <exec_depend>rospy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>rosgraph_msgs</exec_depend>
+  <depend>geometry_msgs</depend>
+  <depend>rosgraph_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend condition="$ROS_VERSION == 1">rospy</depend>
+  <depend condition="$ROS_VERSION == 2">rclpy</depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 1">roslaunch</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">ament_index_python</exec_depend>
+  <exec_depend condition="$ROS_VERSION == 2">launch_ros</exec_depend>
 
   <!-- Optional at runtime for selected HeLiPR topics:
        - novatel_gps_msgs is required only when publishing inspva.
-       - livox_ros_driver is required only when publishing livox_avia. -->
+       - livox_ros_driver (ROS 1) or livox_ros_driver2 (ROS 2) is required
+         only when publishing livox_avia. -->
 
-  <export/>
+  <export>
+    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
+    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+  </export>
 </package>

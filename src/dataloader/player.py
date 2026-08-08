@@ -18,7 +18,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import rospy
 import yaml
 from geometry_msgs.msg import PoseStamped
 from rosgraph_msgs.msg import Clock
@@ -32,14 +31,17 @@ except Exception:
 try:
     from livox_ros_driver.msg import CustomMsg, CustomPoint
 except Exception:
-    CustomMsg = None
-    CustomPoint = None
+    try:
+        from livox_ros_driver2.msg import CustomMsg, CustomPoint
+    except Exception:
+        CustomMsg = None
+        CustomPoint = None
 
 from dataloader.common import resolve_sequence_dir
+from dataloader.lidar import AEVA_INTENSITY_THRESHOLD_NS, read_structured_points
 from dataloader.pose_utils import matrix_to_quat, quat_to_matrix, timestamp_to_ns
-
-
-AEVA_INTENSITY_THRESHOLD_NS = 1691936557946849179
+from dataloader.ros_compat import ros as rospy
+from dataloader.ros_compat import stamp_from_ns
 
 
 POINT_FIELD_TYPES = {
@@ -52,7 +54,7 @@ POINT_FIELD_TYPES = {
 
 
 def _stamp_from_ns(timestamp_ns):
-    return rospy.Time.from_sec(timestamp_ns * 1e-9)
+    return stamp_from_ns(timestamp_ns)
 
 
 def _read_timeline(path):
@@ -180,8 +182,13 @@ def _pose_stamped(timestamp_ns, transform, frame_id):
 
 def _cloud_from_raw(path, timestamp_ns, frame_id, fields, point_step):
     data = path.read_bytes()
+    if len(data) % point_step:
+        raise ValueError(
+            "{} size {} is not divisible by point step {}".format(
+                path, len(data), point_step
+            )
+        )
     point_count = len(data) // point_step
-    data = data[: point_count * point_step]
     msg = PointCloud2()
     msg.header.stamp = _stamp_from_ns(timestamp_ns)
     msg.header.frame_id = frame_id
@@ -197,14 +204,13 @@ def _cloud_from_raw(path, timestamp_ns, frame_id, fields, point_step):
 
 
 def _mulran_ouster(path, timestamp_ns, frame_id):
-    raw = np.fromfile(str(path), dtype="<f4")
-    point_count = raw.size // 4
-    raw = raw[: point_count * 4].reshape((point_count, 4))
+    raw = read_structured_points(path, "mulran_ouster", timestamp_ns)
+    point_count = len(raw)
     cloud = np.empty(point_count, dtype=[("x", "<f4"), ("y", "<f4"), ("z", "<f4"), ("intensity", "<f4"), ("ring", "<i4")])
-    cloud["x"] = raw[:, 0]
-    cloud["y"] = raw[:, 1]
-    cloud["z"] = raw[:, 2]
-    cloud["intensity"] = raw[:, 3]
+    cloud["x"] = raw["x"]
+    cloud["y"] = raw["y"]
+    cloud["z"] = raw["z"]
+    cloud["intensity"] = raw["intensity"]
     cloud["ring"] = (np.arange(point_count, dtype=np.int32) % 64) + 1
     msg = PointCloud2()
     msg.header.stamp = _stamp_from_ns(timestamp_ns)
@@ -246,6 +252,12 @@ def _helipr_livox_avia(path, timestamp_ns, frame_id):
         raise RuntimeError("livox_ros_driver is required to publish livox_avia")
     point_step = 19
     data = path.read_bytes()
+    if len(data) % point_step:
+        raise ValueError(
+            "{} size {} is not divisible by point step {}".format(
+                path, len(data), point_step
+            )
+        )
     msg = CustomMsg()
     msg.header.stamp = _stamp_from_ns(timestamp_ns)
     msg.header.frame_id = frame_id

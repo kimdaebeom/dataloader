@@ -31,4 +31,4 @@ transform:
   enabled: false
 
 # Optional topics, frame_ids, /clock, Livox, and pose transform details:
-#   docs/playback_config.html
+#   docs/ros-playback.md

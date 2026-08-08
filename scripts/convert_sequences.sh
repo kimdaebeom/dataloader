@@ -24,13 +24,13 @@ Options:
 Examples:
   rosrun dataloader convert_sequences.sh \
     --dataset helipr \
-    --source-root /media/beom/ux_dataset1/dataset/helipr \
-    --output /media/beom/ux_dataset1/converted_dataset
+    --source-root /data/raw/helipr \
+    --output /data/converted
 
   rosrun dataloader convert_sequences.sh \
     --dataset semantic_kitti \
-    --source-root /media/beom/T71/dataset/semantic_kitti \
-    --output /media/beom/ux_dataset1/converted_dataset \
+    --source-root /data/raw/semantic_kitti \
+    --output /data/converted \
     00 01 02 05 07
 EOF
 }
@@ -54,58 +54,32 @@ sequences=()
 validate_converted_copy() {
   local output_dir="$1"
   python3 - "$output_dir" <<'PY'
-import csv
 import sys
-from pathlib import Path
 
-import yaml
+from dataloader import validate_dataset
 
-root = Path(sys.argv[1]).expanduser().resolve()
-manifest_path = root / "manifest.yaml"
-timeline_path = root / "timeline.csv"
-missing_path = root / "missing_files.txt"
+report = validate_dataset(sys.argv[1])
 
-def fail(message):
-    print("VALIDATION FAILED: {}".format(message), file=sys.stderr)
+if not report.ok:
+    for issue in report.errors:
+        print("VALIDATION FAILED [{}] {}".format(issue.code, issue.message), file=sys.stderr)
     raise SystemExit(1)
 
-if not root.is_dir():
-    fail("converted sequence directory not found: {}".format(root))
-if not manifest_path.is_file():
-    fail("manifest.yaml not found")
-if not timeline_path.is_file():
-    fail("timeline.csv not found")
-if missing_path.exists():
-    fail("missing_files.txt exists")
+if report.stats.get("storage_mode") != "copy":
+    print(
+        "VALIDATION FAILED: storage_mode is '{}', expected 'copy'".format(
+            report.stats.get("storage_mode")
+        ),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
-with manifest_path.open("r") as handle:
-    manifest = yaml.safe_load(handle) or {}
-if manifest.get("storage_mode") != "copy":
-    fail("storage_mode is '{}', expected 'copy'".format(manifest.get("storage_mode")))
-
-events = 0
-unique_paths = set()
-with timeline_path.open("r", newline="") as handle:
-    reader = csv.DictReader(handle)
-    for row in reader:
-        events += 1
-        rel = row.get("relative_path", "")
-        if not rel:
-            fail("empty relative_path in timeline")
-        rel_path = Path(rel)
-        if rel_path.is_absolute():
-            fail("absolute path remains in timeline: {}".format(rel))
-        path = (root / rel_path).resolve()
-        if path != root and root not in path.parents:
-            fail("timeline path escapes converted directory: {}".format(rel))
-        if not path.is_file():
-            fail("timeline file not found: {}".format(rel))
-        unique_paths.add(str(path))
-
-if events == 0:
-    fail("timeline has no events")
-
-print("VALIDATION OK: events={}, unique_files={}".format(events, len(unique_paths)))
+print(
+    "VALIDATION OK: events={}, unique_files={}".format(
+        report.stats["events"],
+        report.stats["unique_files"],
+    )
+)
 PY
 }
 
@@ -187,8 +161,12 @@ done
 [[ -n "$output_root" ]] || die "--output is required"
 [[ -d "$source_root" ]] || die "source root not found: $source_root"
 
-if ! command -v rosrun >/dev/null 2>&1; then
-  die "rosrun not found. Source ROS and the catkin workspace first."
+if command -v dataloader-convert >/dev/null 2>&1; then
+  converter_command=(dataloader-convert)
+elif command -v rosrun >/dev/null 2>&1; then
+  converter_command=(rosrun dataloader dataloader_convert.py)
+else
+  die "dataloader-convert and rosrun were not found. Install this package or source the catkin workspace."
 fi
 
 if [[ ${#sequences[@]} -eq 0 ]]; then
@@ -244,7 +222,7 @@ for index in "${!sequences[@]}"; do
   fi
 
   cmd=(
-    rosrun dataloader dataloader_convert.py
+    "${converter_command[@]}"
     --dataset "$dataset"
     --source "$source_dir"
     --output "$output_root"

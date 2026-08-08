@@ -6,6 +6,22 @@ from pathlib import Path
 FORMAT_VERSION = 1
 
 
+def validate_path_component(value, label="name"):
+    """Validate a user-controlled value used as one directory component."""
+    text = str(value)
+    if (
+        not text
+        or text in (".", "..")
+        or "/" in text
+        or "\\" in text
+        or "\x00" in text
+    ):
+        raise ValueError(
+            "{} must be one non-empty path component: {!r}".format(label, text)
+        )
+    return text
+
+
 DATASET_DEFINITIONS = {
     "mulran": {
         "timeline_file": "sensor_data/data_stamp.csv",
@@ -138,11 +154,16 @@ DATASET_DEFINITIONS = {
 }
 
 
+def available_datasets():
+    """Return the dataset identifiers supported by the converter."""
+    return tuple(sorted(DATASET_DEFINITIONS))
+
+
 def dataset_definition(dataset):
     try:
         return DATASET_DEFINITIONS[dataset]
     except KeyError as exc:
-        names = ", ".join(sorted(DATASET_DEFINITIONS))
+        names = ", ".join(available_datasets())
         raise ValueError("unknown dataset '{}'; expected one of: {}".format(dataset, names)) from exc
 
 
