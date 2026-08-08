@@ -2,7 +2,11 @@
 
 Conversion, reading, inspection, and validation do not require ROS. Replace the example paths below with your dataset locations.
 
-## Command-line tools
+<a id="command-line-tools"></a>
+<details open>
+<summary><strong>Command-line tools</strong></summary>
+
+<br>
 
 A Python installation provides four commands:
 
@@ -16,7 +20,13 @@ A Python installation provides four commands:
 
 `python -m dataloader` is equivalent to `dataloader-convert`.
 
-## Convert one sequence
+</details>
+
+<a id="convert-one-sequence"></a>
+<details open>
+<summary><strong>Convert one sequence</strong></summary>
+
+<br>
 
 ```bash
 dataloader-convert \
@@ -51,7 +61,13 @@ result = convert_dataset(
 print(result["manifest_path"])
 ```
 
-## Read a converted sequence
+</details>
+
+<a id="read-a-converted-sequence"></a>
+<details>
+<summary><strong>Read a converted sequence</strong></summary>
+
+<br>
 
 ```python
 from dataloader import Dataset
@@ -80,7 +96,13 @@ imu_window = dataset.between(
 pose = dataset.pose_at(frame.timestamp_ns, source="gt", sensor="ouster")
 ```
 
-## Validate and inspect
+</details>
+
+<a id="validate-and-inspect"></a>
+<details>
+<summary><strong>Validate and inspect</strong></summary>
+
+<br>
 
 ```bash
 dataloader-validate /data/converted/helipr/DCC01
@@ -99,7 +121,13 @@ info = dataset_info("/data/converted/helipr/DCC01")
 print(info["sensors"])
 ```
 
-## Batch conversion
+</details>
+
+<a id="batch-conversion"></a>
+<details>
+<summary><strong>Batch conversion</strong></summary>
+
+<br>
 
 Convert every child directory under a raw dataset root:
 
@@ -136,12 +164,26 @@ print(result.successful, result.skipped, result.failed)
 
 Existing outputs are skipped unless `overwrite=True`. Use `workers=1` when you want sequence logs to remain strictly ordered.
 
-## Storage modes
+</details>
+
+<a id="storage-modes"></a>
+<details>
+<summary><strong>Storage modes</strong></summary>
+
+<br>
 
 `copy`, `reference`, `symlink`, `hardlink`, and `hardlink_or_copy` are supported. Use `copy` for portable results and whenever the raw sequence may be removed. See [Converted format](format.md#storage-modes) for the trade-offs.
 
-## ROS playback
+</details>
+
+<a id="ros-playback"></a>
+<details>
+<summary><strong>ROS playback</strong></summary>
+
+<br>
 
 Build the package in a ROS workspace, choose a config under `config/`, and use the ROS-version-specific launch command. Playback starts paused by default: press `Space` to play or pause and `Q` to quit.
 
 See [Installation](installation.md) and [ROS playback](ros-playback.md) for complete commands and configuration options.
+
+</details>

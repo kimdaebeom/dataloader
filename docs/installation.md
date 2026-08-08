@@ -1,6 +1,10 @@
 # Installation
 
-## Requirements
+<a id="requirements"></a>
+<details open>
+<summary><strong>Requirements</strong></summary>
+
+<br>
 
 - Python 3.8 or newer
 - NumPy and PyYAML for conversion and reading
@@ -9,7 +13,13 @@
 
 The Python API and CLI tools do not require ROS.
 
-## Python and pip
+</details>
+
+<a id="python-and-pip"></a>
+<details open>
+<summary><strong>Python and pip</strong></summary>
+
+<br>
 
 Install the public package from PyPI:
 
@@ -38,7 +48,13 @@ cd dataloader
 python3 -m pip install -e .
 ```
 
-## ROS 1
+</details>
+
+<a id="ros-1"></a>
+<details>
+<summary><strong>ROS 1</strong></summary>
+
+<br>
 
 Clone the repository into a catkin workspace and build it after sourcing ROS:
 
@@ -60,7 +76,13 @@ roslaunch dataloader player.launch \
   config:=$(rospack find dataloader)/config/mulran.yaml
 ```
 
-## ROS 2
+</details>
+
+<a id="ros-2"></a>
+<details>
+<summary><strong>ROS 2</strong></summary>
+
+<br>
 
 Clone the same repository into a colcon workspace:
 
@@ -85,7 +107,13 @@ ros2 launch dataloader player.launch.py \
 
 The package uses the sourced `ROS_VERSION` to select catkin or ament from the same `package.xml` and `CMakeLists.txt`.
 
-## Optional playback messages
+</details>
+
+<a id="optional-playback-messages"></a>
+<details>
+<summary><strong>Optional playback messages</strong></summary>
+
+<br>
 
 Most sensors use standard messages from `sensor_msgs` and `geometry_msgs`. HeLiPR has two optional publishers:
 
@@ -94,9 +122,17 @@ Most sensors use standard messages from `sensor_msgs` and `geometry_msgs`. HeLiP
 
 These packages are needed only when the corresponding sensor is enabled in the playback config. Source their workspace before launching the player.
 
-## Troubleshooting
+</details>
+
+<a id="troubleshooting"></a>
+<details>
+<summary><strong>Troubleshooting</strong></summary>
+
+<br>
 
 - `ROS_VERSION is not set`: source exactly one ROS environment before playback.
 - `package 'dataloader' not found`: source the workspace's `devel/setup.bash` or `install/setup.bash` after building.
 - Missing Livox or NovAtel message errors: disable that sensor or install and source its message package.
 - No keyboard controls: launch from an interactive terminal or set `keyboard_control: false` and `start_paused: false`.
+
+</details>

@@ -1,6 +1,10 @@
 # Release checklist
 
-## Before the first public release
+<a id="before-the-first-public-release"></a>
+<details open>
+<summary><strong>Before the first public release</strong></summary>
+
+<br>
 
 - Verify that the MIT license metadata and `LICENSE` file are included in both artifacts.
 - Confirm that `autonomous-dataloader` is still available as the PyPI distribution name.
@@ -9,7 +13,13 @@
 
 The PyPI distribution name, Python import name, and ROS package name may differ. This project uses `autonomous-dataloader` for distribution and `dataloader` for both Python imports and ROS.
 
-## Build and test
+</details>
+
+<a id="build-and-test"></a>
+<details>
+<summary><strong>Build and test</strong></summary>
+
+<br>
 
 ```bash
 python3 -m pip install --upgrade build twine
@@ -32,7 +42,13 @@ dataloader-validate --help
 
 Build once in a clean ROS 1 workspace and once in a clean ROS 2 workspace. Launch a short converted sequence and verify `/clock`, one PointCloud2 stream, and one IMU stream when available.
 
-## Configure PyPI Trusted Publishing
+</details>
+
+<a id="configure-pypi-trusted-publishing"></a>
+<details>
+<summary><strong>Configure PyPI Trusted Publishing</strong></summary>
+
+<br>
 
 The repository publishes through `.github/workflows/publish-to-pypi.yml` without a long-lived API token. Before the first release, create a pending GitHub publisher at <https://pypi.org/manage/account/publishing/> with:
 
@@ -46,7 +62,13 @@ The repository publishes through `.github/workflows/publish-to-pypi.yml` without
 
 Create the `pypi` environment in the GitHub repository and require manual approval for deployment.
 
-## Publish
+</details>
+
+<a id="publish"></a>
+<details>
+<summary><strong>Publish</strong></summary>
+
+<br>
 
 1. Verify that the release commit passes the Python and ROS workflows.
 2. Tag the exact release commit, for example `v0.1.0`, and push the tag.
@@ -62,3 +84,5 @@ python3 -c "import dataloader; print(dataloader.__version__)"
 ```
 
 The GitHub tag, `setup.py`, `package.xml`, and `dataloader.__version__` must use the same version.
+
+</details>

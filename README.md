@@ -16,7 +16,10 @@ Convert autonomous-driving datasets into one timestamped layout, then use the sa
 
 ## Quick start
 
-### Install
+<details open>
+<summary><strong>Install</strong></summary>
+
+<br>
 
 #### Python
 
@@ -54,7 +57,12 @@ colcon build --symlink-install --packages-select dataloader
 source install/setup.bash
 ```
 
-### Convert
+</details>
+
+<details>
+<summary><strong>Convert</strong></summary>
+
+<br>
 
 #### Python CLI
 
@@ -97,7 +105,12 @@ ros2 run dataloader dataloader_convert \
   --output /data/converted
 ```
 
-### Playback
+</details>
+
+<details>
+<summary><strong>Playback</strong></summary>
+
+<br>
 
 Choose a config from `config/` and set its dataset root and sequence.
 
@@ -115,6 +128,8 @@ ros2 launch dataloader player.launch.py \
   config:=$(ros2 pkg prefix dataloader)/share/dataloader/config/mulran.yaml
 ```
 
+</details>
+
 ## Documentation
 
 - [Installation](https://github.com/kimdaebeom/dataloader/blob/master/docs/installation.md) — Python, ROS 1, and ROS 2
@@ -124,7 +139,10 @@ ros2 launch dataloader player.launch.py \
 - [ROS playback](https://github.com/kimdaebeom/dataloader/blob/master/docs/ros-playback.md) — configuration, topics, and transforms
 - [Development](https://github.com/kimdaebeom/dataloader/blob/master/docs/development.md) · [Release checklist](https://github.com/kimdaebeom/dataloader/blob/master/docs/releasing.md)
 
-## Supported datasets
+<details>
+<summary><strong>Supported datasets</strong></summary>
+
+<br>
 
 | Dataset | Converter | LiDAR formats |
 | --- | --- | --- |
@@ -133,5 +151,7 @@ ros2 launch dataloader player.launch.py \
 | [SemanticKITTI](https://www.semantic-kitti.org/) | Yes | Velodyne |
 
 SemanticKITTI currently expects the preprocessed `pcd/` plus `odom_tum.txt` layout described in [Dataset layouts](https://github.com/kimdaebeom/dataloader/blob/master/docs/datasets.md#semantickitti). Native KITTI/KITTI Odometry input is not yet supported.
+
+</details>
 
 Released under the [MIT License](https://github.com/kimdaebeom/dataloader/blob/master/LICENSE).

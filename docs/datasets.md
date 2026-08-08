@@ -2,7 +2,11 @@
 
 Each converter accepts one raw sequence directory. The examples below show the paths used by the adapters; unrelated files may remain alongside them.
 
-## MulRan
+<a id="mulran"></a>
+<details>
+<summary><strong>MulRan</strong></summary>
+
+<br>
 
 ```text
 KAIST01/
@@ -19,7 +23,13 @@ KAIST01/
 
 Ground truth in `global_pose.csv` is converted to `poses/gt.txt`.
 
-## HeLiPR
+</details>
+
+<a id="helipr"></a>
+<details>
+<summary><strong>HeLiPR</strong></summary>
+
+<br>
 
 ```text
 DCC01/
@@ -42,7 +52,13 @@ DCC01/
 
 LiDAR-specific ground truth is copied into `poses/gt_<sensor>.txt`; global tracks are stored as `poses/gt_global_<sensor>.txt`.
 
-## SemanticKITTI
+</details>
+
+<a id="semantickitti"></a>
+<details>
+<summary><strong>SemanticKITTI</strong></summary>
+
+<br>
 
 The current adapter targets a preprocessed sequence rather than native KITTI files:
 
@@ -59,3 +75,5 @@ The current adapter targets a preprocessed sequence rather than native KITTI fil
 Each `pcd/*.bin` file stores little-endian `float32 [x, y, z, intensity]` records. `odom_tum.txt` supplies both LiDAR timestamps and poses in TUM format. Its row order must match the sorted PCD filenames one-to-one; conversion stops when the counts differ.
 
 Native KITTI/KITTI Odometry layouts are not currently supported.
+
+</details>

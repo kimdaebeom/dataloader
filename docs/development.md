@@ -1,6 +1,10 @@
 # Development
 
-## Local checks
+<a id="local-checks"></a>
+<details open>
+<summary><strong>Local checks</strong></summary>
+
+<br>
 
 ```bash
 python3 -m pip install -e .
@@ -13,7 +17,13 @@ python3 -m twine check dist/*
 
 Use a temporary virtual environment to verify that the wheel does not rely on files from the source checkout.
 
-## Project structure
+</details>
+
+<a id="project-structure"></a>
+<details>
+<summary><strong>Project structure</strong></summary>
+
+<br>
 
 ```text
 src/dataloader/
@@ -28,7 +38,13 @@ src/dataloader/
 
 `package.xml` format 3 and conditional CMake branches keep catkin and ament builds in one package. Core Python modules must remain importable without a ROS installation.
 
-## Add a dataset converter
+</details>
+
+<a id="add-a-dataset-converter"></a>
+<details>
+<summary><strong>Add a dataset converter</strong></summary>
+
+<br>
 
 Implement `BaseConverter` and register one instance:
 
@@ -52,15 +68,29 @@ register_converter(MyConverter())
 
 The adapter should describe dataset-specific timeline, file, and pose rules. Shared path validation, storage modes, manifest creation, and summaries belong in the common pipeline.
 
-## Add a LiDAR format
+</details>
+
+<a id="add-a-lidar-format"></a>
+<details>
+<summary><strong>Add a LiDAR format</strong></summary>
+
+<br>
 
 Define an explicit packed NumPy dtype in `dataloader.lidar` and map it to the manifest format name. The reader and validator must share the same definition; never infer a record layout from a filename alone.
 
 Add tests with a minimal packed binary record that verify both sensor-specific fields and the common `[x, y, z, intensity]` view.
 
-## Compatibility policy
+</details>
+
+<a id="compatibility-policy"></a>
+<details>
+<summary><strong>Compatibility policy</strong></summary>
+
+<br>
 
 - Keep conversion and reading independent of ROS imports.
 - Test ROS 1 and ROS 2 package metadata whenever dependencies change.
 - Keep versions synchronized across `setup.py`, `package.xml`, and `dataloader.__version__`.
 - Preserve backward compatibility for the converted format or increment `format_version` with a documented migration.
+
+</details>

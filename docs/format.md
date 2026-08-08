@@ -12,7 +12,11 @@ All adapters produce the same top-level structure:
         └── poses/
 ```
 
-## Manifest
+<a id="manifest"></a>
+<details open>
+<summary><strong>Manifest</strong></summary>
+
+<br>
 
 `manifest.yaml` records the format version, dataset and sequence names, storage mode, primary LiDAR, timeline path, sensor definitions, default topics and frame IDs, and available pose tracks.
 
@@ -38,7 +42,13 @@ poses:
 
 Consumers should use the declared sensor `format`; binary records differ by sensor and dataset.
 
-## Timeline
+</details>
+
+<a id="timeline"></a>
+<details>
+<summary><strong>Timeline</strong></summary>
+
+<br>
 
 `timeline.csv` is globally ordered by timestamp and sensor:
 
@@ -49,13 +59,25 @@ timestamp_ns,sensor,relative_path
 
 In self-contained modes, `relative_path` stays inside the converted sequence. `reference` mode may contain absolute paths to raw files.
 
-## LiDAR data
+</details>
+
+<a id="lidar-data"></a>
+<details>
+<summary><strong>LiDAR data</strong></summary>
+
+<br>
 
 `Dataset.lidar(...).structured()` preserves the sensor-specific packed fields. `numpy()` returns the common `float32 [N, 4]` view containing `x`, `y`, `z`, and `intensity` (or the closest declared reflectivity field where applicable).
 
 The validator checks that each binary file size is divisible by its format's packed record size.
 
-## Poses
+</details>
+
+<a id="poses"></a>
+<details>
+<summary><strong>Poses</strong></summary>
+
+<br>
 
 Converted poses use TUM syntax:
 
@@ -65,7 +87,13 @@ timestamp tx ty tz qx qy qz qw
 
 Timestamps may be expressed in seconds or nanoseconds when read. Converter output uses nanoseconds. Pose keys are recorded in the manifest so consumers do not need dataset-specific filename rules.
 
-## Storage modes
+</details>
+
+<a id="storage-modes"></a>
+<details>
+<summary><strong>Storage modes</strong></summary>
+
+<br>
 
 | Mode | Behavior | Recommended use |
 | --- | --- | --- |
@@ -77,7 +105,13 @@ Timestamps may be expressed in seconds or nanoseconds when read. Converter outpu
 
 Only `copy` should be used when the raw sequence will be deleted. References, symbolic links, and hard links can depend on the original path or filesystem state.
 
-## Safe raw-data cleanup
+</details>
+
+<a id="safe-raw-data-cleanup"></a>
+<details>
+<summary><strong>Safe raw-data cleanup</strong></summary>
+
+<br>
 
 The legacy ROS 1 batch wrapper supports `--delete-source-after-success`:
 
@@ -90,3 +124,5 @@ rosrun dataloader convert_sequences.sh \
 ```
 
 Deletion is allowed only for a newly converted `copy` result that passes validation, has no `missing_files.txt`, resolves every timeline entry inside the output sequence, and targets a child of the declared source root. Skipped outputs are never deleted.
+
+</details>
