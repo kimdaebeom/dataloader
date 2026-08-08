@@ -20,6 +20,7 @@ setup_arguments = dict(
     author="Kim Daebeom",
     author_email="kimdaebeom@users.noreply.github.com",
     license="MIT",
+    license_files=["LICENSE"],
     url="https://github.com/kimdaebeom/dataloader",
     project_urls={
         "Documentation": "https://github.com/kimdaebeom/dataloader/tree/master/docs",

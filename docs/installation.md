@@ -11,25 +11,13 @@ The Python API and CLI tools do not require ROS.
 
 ## Python and pip
 
-Install from a checkout:
-
-```bash
-git clone https://github.com/kimdaebeom/dataloader.git
-cd dataloader
-python3 -m pip install .
-```
-
-Use an editable install while developing:
-
-```bash
-python3 -m pip install -e .
-```
-
-The distribution name is `autonomous-dataloader`; the import package remains `dataloader`. After a PyPI release, installation will be:
+Install the public package from PyPI:
 
 ```bash
 python3 -m pip install autonomous-dataloader
 ```
+
+The distribution name is `autonomous-dataloader`; the import package remains `dataloader`.
 
 Verify the command-line entry points:
 
@@ -41,6 +29,14 @@ dataloader-validate --help
 ```
 
 `dataloader-player` is also installed, but it must be run from a sourced ROS environment with the ROS playback dependencies available.
+
+For development from a source checkout:
+
+```bash
+git clone https://github.com/kimdaebeom/dataloader.git
+cd dataloader
+python3 -m pip install -e .
+```
 
 ## ROS 1
 
