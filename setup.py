@@ -11,7 +11,7 @@ ROOT = Path(__file__).parent
 
 
 setup_arguments = dict(
-    name="autonomous-dataloader",
+    name="autodataloader",
     version="0.1.0",
     description="Convert autonomous-driving datasets into a unified, timestamped layout.",
     long_description=(ROOT / "README.md").read_text(encoding="utf-8"),
@@ -48,22 +48,18 @@ setup_arguments = dict(
         "numpy>=1.20",
         "PyYAML>=5.4",
     ],
-    extras_require={
-        "player": ["opencv-python-headless>=4.5"],
-        "dev": ["build>=0.10", "twine>=4"],
-    },
+    extras_require={"dev": ["build>=0.10", "twine>=4"]},
 )
 
 # catkin replaces setuptools.setup() while inspecting this file and does not
 # support entry_points in its devel space. The existing catkin-installed script
-# remains available there; normal setuptools/pip installs get the modern CLI.
+# remains available there; normal setuptools/pip installs get the ROS-free CLI.
 if setup.__module__ == "setuptools":
     setup_arguments["entry_points"] = {
         "console_scripts": [
             "dataloader-convert=dataloader.converter:main",
             "dataloader-convert-many=dataloader.batch:main",
             "dataloader-info=dataloader.info:main",
-            "dataloader-player=dataloader.player:main",
             "dataloader-validate=dataloader.validation:main",
         ],
     }

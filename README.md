@@ -26,10 +26,10 @@ Convert autonomous-driving datasets into one timestamped layout, then use the sa
 Install the public package from PyPI:
 
 ```bash
-python3 -m pip install autonomous-dataloader
+python3 -m pip install autodataloader
 ```
 
-The distribution is named `autonomous-dataloader`; import it as `dataloader`.
+The distribution is named `autodataloader`; import it as `dataloader`. The PyPI package installs only the ROS-independent conversion, reading, validation, and inspection tools.
 
 #### ROS 1
 

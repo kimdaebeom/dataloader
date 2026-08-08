@@ -7,11 +7,11 @@
 <br>
 
 - Verify that the MIT license metadata and `LICENSE` file are included in both artifacts.
-- Confirm that `autonomous-dataloader` is still available as the PyPI distribution name.
+- Confirm that `autodataloader` is still available as the PyPI distribution name.
 - Confirm maintainer identity and contact details.
 - Review upstream dataset licenses, citation requirements, and trademark terms.
 
-The PyPI distribution name, Python import name, and ROS package name may differ. This project uses `autonomous-dataloader` for distribution and `dataloader` for both Python imports and ROS.
+The PyPI distribution name, Python import name, and ROS package name may differ. This project uses `autodataloader` for distribution and `dataloader` for both Python imports and ROS.
 
 </details>
 
@@ -54,7 +54,7 @@ The repository publishes through `.github/workflows/publish-to-pypi.yml` without
 
 | Field | Value |
 | --- | --- |
-| PyPI project name | `autonomous-dataloader` |
+| PyPI project name | `autodataloader` |
 | GitHub owner | `kimdaebeom` |
 | Repository | `dataloader` |
 | Workflow | `publish-to-pypi.yml` |
@@ -79,7 +79,7 @@ Create the `pypi` environment in the GitHub repository and require manual approv
 ```bash
 python3 -m venv /tmp/dataloader-pypi-test
 source /tmp/dataloader-pypi-test/bin/activate
-python3 -m pip install autonomous-dataloader
+python3 -m pip install autodataloader
 python3 -c "import dataloader; print(dataloader.__version__)"
 ```
 

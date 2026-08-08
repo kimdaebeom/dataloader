@@ -15,7 +15,6 @@ A Python installation provides four commands:
 | `dataloader-convert` | Convert one sequence |
 | `dataloader-convert-many` | Convert multiple sequences |
 | `dataloader-info` | Summarize a converted sequence |
-| `dataloader-player` | Run playback from a sourced ROS environment |
 | `dataloader-validate` | Validate format and referenced files |
 
 `python -m dataloader` is equivalent to `dataloader-convert`.
